@@ -136,12 +136,30 @@ export default function TournamentDashboard({
           </button>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <button
-              onClick={() => setShowTVMode(true)}
-              className="bg-brand-pink/10 hover:bg-brand-pink/20 text-brand-pink px-3 py-1.5 rounded text-xs font-bold transition-colors flex items-center gap-2 border border-brand-pink/20"
-            >
-              📺 Modo TV
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}${window.location.pathname}?tv=${config.id}`;
+                  window.open(url, "_blank");
+                }}
+                className="bg-brand-pink/10 hover:bg-brand-pink/20 text-brand-pink px-3 py-1.5 rounded-l-lg text-xs font-bold transition-colors flex items-center gap-2 border border-brand-pink/20 border-r-0"
+                title="Abrir Modo TV em nova aba"
+              >
+                📺 Modo TV
+              </button>
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}${window.location.pathname}?tv=${config.id}`;
+                  navigator.clipboard.writeText(url).then(() => {
+                    alert("Link do Modo TV copiado com sucesso!");
+                  });
+                }}
+                className="bg-brand-pink/10 hover:bg-brand-pink/20 text-brand-pink px-2.5 py-1.5 rounded-r-lg text-xs font-bold transition-colors flex items-center justify-center border border-brand-pink/20"
+                title="Copiar link do Modo TV"
+              >
+                🔗
+              </button>
+            </div>
           </div>
         </div>
         <div className="flex items-start justify-between gap-3">
