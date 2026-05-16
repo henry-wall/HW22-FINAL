@@ -635,8 +635,7 @@ export default function KingQueenDashboard({ config, players }: KingQueenDashboa
                                 </div>
                               </div>
                               </div>
-                            );
-                          })}
+                            ))}
                         </div>
                       ))}
                   </div>
