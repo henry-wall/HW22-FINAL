@@ -18,10 +18,14 @@ export function ScoreInput({ scoreA, scoreB, onChange, isValid = true }: ScoreIn
       return;
     }
     const formatted = formatMatchScore(scoreA, scoreB).text;
-    // Only update local value if it parses to the same score to allow user typing
     const parsed = parseScoreInput(localVal);
+    // Only update local value if it differs from current state AND user is not in the middle of typing something valid
     if (parsed.scoreA !== scoreA || parsed.scoreB !== scoreB) {
-      setLocalVal(formatted === "-" ? "" : formatted);
+      if (scoreA === "" && scoreB === "") {
+        setLocalVal("");
+      } else {
+        setLocalVal(formatted === "-" ? "" : formatted);
+      }
     }
   }, [scoreA, scoreB]);
 
@@ -32,8 +36,8 @@ export function ScoreInput({ scoreA, scoreB, onChange, isValid = true }: ScoreIn
     const b: string[] = [];
     sets.forEach(s => {
       const parts = s.split(":");
-      a.push(parts[0] ? parts[0].trim() : "0");
-      b.push(parts[1] ? parts[1].trim() : "0");
+      a.push(parts[0] ? parts[0].trim() : "");
+      b.push(parts[1] ? parts[1].trim() : "");
     });
     return { scoreA: a.join("/"), scoreB: b.join("/") };
   };

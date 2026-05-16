@@ -2,8 +2,8 @@ export function formatMatchScore(scoreA?: string | number, scoreB?: string | num
   if (scoreA === undefined && scoreB === undefined) return { text: "-", winner: null, isTie: true };
   if (scoreA === "" && scoreB === "") return { text: "-", winner: null, isTie: true };
 
-  const sA = String(scoreA || "0").split("/");
-  const sB = String(scoreB || "0").split("/");
+  const sA = String(scoreA !== undefined && scoreA !== null ? scoreA : "").split("/");
+  const sB = String(scoreB !== undefined && scoreB !== null ? scoreB : "").split("/");
   
   const maxSets = Math.max(sA.length, sB.length);
   const sets = [];
@@ -12,10 +12,12 @@ export function formatMatchScore(scoreA?: string | number, scoreB?: string | num
   let winsB = 0;
 
   for (let i = 0; i < maxSets; i++) {
-    const valA = Number(sA[i] || 0);
-    const valB = Number(sB[i] || 0);
-    if (valA > valB) winsA++;
-    if (valB > valA) winsB++;
+    const valA = sA[i] || "";
+    const valB = sB[i] || "";
+    if (valA !== "" && valB !== "") {
+      if (Number(valA) > Number(valB)) winsA++;
+      if (Number(valB) > Number(valA)) winsB++;
+    }
     sets.push(`${valA}:${valB}`);
   }
 
