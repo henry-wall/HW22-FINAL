@@ -610,7 +610,10 @@ export default function KingQueenDashboard({ config, players }: KingQueenDashboa
                       ))}
                     </div>
 
-                      return (
+                    {rounds.map(rnd => (
+                      <div key={rnd.round} className="mb-4 last:mb-0">
+                        <div className="text-xs text-muted font-bold mb-2 uppercase tracking-widest">Rodada {rnd.round}</div>
+                        {rnd.matches.map(m => (
                         <div 
                               key={m.globalId} 
                               onClick={() => setEditingMatchId(m.globalId)}
@@ -631,11 +634,11 @@ export default function KingQueenDashboard({ config, players }: KingQueenDashboa
                                   {formatMatchScore(data.matchResults[m.globalId]?.scoreA, data.matchResults[m.globalId]?.scoreB).text}
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
                   </div>
                 </div>
               );
