@@ -8,6 +8,7 @@ export type TiebreakerCriterion = "wins" | "direct_confrontation" | "gamediff" |
 export type VictoryCondition = "wins" | "gamediff" | "gamesfor"; // Kept for backwards compatibility
 export type DurationType = "set6" | "shortset" | "supertie" | "game6";
 export type TournamentGroupFormat = "single" | "groups";
+export type PlayoffFormat = "none" | "series" | "knockout";
 export type ViewMode = "planning" | "operation" | "presentation";
 
 export interface MatchSettings {
@@ -81,6 +82,7 @@ export interface TournamentConfig {
   numPlayers: number;              // Total de jogadores/casais
   numCourts: number;
   groupFormat: TournamentGroupFormat;
+  playoffFormat?: PlayoffFormat;
   matchSettings?: MatchSettings;
   createdAt: string;
   eventId?: string;                // ID do evento maior (opcional)

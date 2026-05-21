@@ -6,6 +6,9 @@ export interface EngineMatch {
   court?: number;
   round?: number;
   group?: "A" | "B";
+  isPlayoff?: boolean;
+  playoffStage?: "semifinal" | "final";
+  playoffSeries?: "ouro" | "prata" | "bronze" | "cobre";
 }
 
 export function generateSuper8Schedule(

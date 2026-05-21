@@ -1,4 +1,4 @@
-import type { DurationType, MatchSettings, TournamentFormat, TournamentGroupFormat } from "../../types/tournament";
+import type { DurationType, MatchSettings, TournamentFormat, TournamentGroupFormat, PlayoffFormat } from "../../types/tournament";
 import { getTieBreakTrigger } from "../../utils/matchSettingsUtils";
 
 interface Step4SettingsProps {
@@ -7,17 +7,20 @@ interface Step4SettingsProps {
   numCourts: number;
   durationType: DurationType;
   groupFormat: TournamentGroupFormat;
+  playoffFormat: PlayoffFormat;
   tournamentName: string;
   matchSettings: MatchSettings;
   onChangeNum: (n: number) => void;
   onChangeCourts: (n: number) => void;
   onChangeDuration: (d: DurationType) => void;
   onChangeGroup: (g: TournamentGroupFormat) => void;
+  onChangePlayoff: (p: PlayoffFormat) => void;
   onChangeName: (name: string) => void;
   onChangeMatchSettings: (s: MatchSettings) => void;
   onNext: () => void;
   onBack: () => void;
 }
+
 
 function calcPreview(numPlayers: number, numCourts: number, durationType: DurationType, format: TournamentFormat) {
   const courts = Math.max(1, numCourts);
@@ -55,8 +58,8 @@ const durations: { id: DurationType; label: string; minutes: number; isNew?: boo
 ];
 
 export default function Step4Settings({
-  format, numPlayers, numCourts, durationType, groupFormat, tournamentName, matchSettings,
-  onChangeNum, onChangeCourts, onChangeDuration, onChangeGroup, onChangeName, onChangeMatchSettings,
+  format, numPlayers, numCourts, durationType, groupFormat, playoffFormat, tournamentName, matchSettings,
+  onChangeNum, onChangeCourts, onChangeDuration, onChangeGroup, onChangePlayoff, onChangeName, onChangeMatchSettings,
   onNext, onBack,
 }: Step4SettingsProps) {
   const isMixed = format === "mixeddoubles";
@@ -230,6 +233,33 @@ export default function Step4Settings({
                 }`}
               >
                 {g.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* Fase Final (apenas Duplas Fixas/Sorteadas) */}
+      {(format === "fixeddoubles" || format === "drawdoubles") && (
+        <div className="mb-6">
+          <label className="block text-[10px] font-black text-text-secondary uppercase tracking-widest mb-3">Fase Final (Playoffs)</label>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { id: "none", label: "Nenhum", desc: "Apenas classificatória" },
+              { id: "series", label: "Séries (Grupos)", desc: "Grupos Ouro/Prata" },
+              { id: "knockout", label: "Mata-Mata", desc: "Semi e Finais" }
+            ].map(p => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => onChangePlayoff(p.id as PlayoffFormat)}
+                className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-200 border-2 text-center ${
+                  playoffFormat === p.id 
+                    ? "border-brand-pink text-brand-pink bg-brand-pink/10" 
+                    : "border-border-main text-text-secondary bg-bg-surface hover:border-brand-pink/30"
+                }`}
+              >
+                <span className="font-bold text-xs">{p.label}</span>
+                <span className="text-[9px] opacity-70 mt-0.5 leading-tight">{p.desc}</span>
               </button>
             ))}
           </div>

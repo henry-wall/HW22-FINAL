@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { TournamentConfig, TournamentFormat, PairingMode, CoupleMode, Category, VictoryCondition, TiebreakerCriterion, DurationType, TournamentGroupFormat, MatchSettings } from "../types/tournament";
+import type { TournamentConfig, TournamentFormat, PairingMode, CoupleMode, Category, VictoryCondition, TiebreakerCriterion, DurationType, TournamentGroupFormat, MatchSettings, PlayoffFormat } from "../types/tournament";
 import { getDefaultMatchSettings } from "../utils/matchSettingsUtils";
 
 interface WizardState {
@@ -14,6 +14,7 @@ interface WizardState {
   numPlayers: number;
   numCourts: number;
   groupFormat: TournamentGroupFormat;
+  playoffFormat: PlayoffFormat;
   tournamentName: string;
   matchSettings: MatchSettings;
 }
@@ -30,6 +31,7 @@ const initial: WizardState = {
   numPlayers: 8,
   numCourts: 2,
   groupFormat: "single",
+  playoffFormat: "none",
   tournamentName: "",
   matchSettings: getDefaultMatchSettings("set6"),
 };
@@ -73,9 +75,7 @@ export function useWizard(onComplete: (config: TournamentConfig, players: string
   }
 
   function getStepCount(): number {
-    if (state.format === "mixeddoubles") return 5;
-    if (state.format === "fixeddoubles" || state.format === "drawdoubles") return 5;
-    return 6;
+    return 5;
   }
 
   function getStepNames(): string[] {
@@ -85,10 +85,7 @@ export function useWizard(onComplete: (config: TournamentConfig, players: string
     if (state.format === "fixeddoubles") {
       return ["Formato", "Categoria", "Configurações", "Vitória", "Duplas"];
     }
-    if (state.format === "drawdoubles") {
-      return ["Formato", "Categoria", "Configurações", "Vitória", "Jogadores"];
-    }
-    return ["Formato", "Duplas", "Categoria", "Configurações", "Vitória", "Jogadores"];
+    return ["Formato", "Categoria", "Configurações", "Vitória", "Jogadores"];
   }
 
   function finish() {
@@ -105,6 +102,7 @@ export function useWizard(onComplete: (config: TournamentConfig, players: string
       numPlayers: state.numPlayers,
       numCourts: state.numCourts,
       groupFormat: state.groupFormat,
+      playoffFormat: state.playoffFormat,
       matchSettings: state.matchSettings,
       createdAt: new Date().toISOString(),
     };

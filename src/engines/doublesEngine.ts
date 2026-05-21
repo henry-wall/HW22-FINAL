@@ -115,3 +115,125 @@ export function shufflePlayersIntoPairs(players: string[]): { manName: string; w
   }
   return pairs;
 }
+
+export function generateDoublesSeries(
+  rankedIndices: number[],
+  playoffFormat: "series" | "knockout"
+): EngineMatch[] {
+  const matches: EngineMatch[] = [];
+  const seriesNames: ("ouro" | "prata" | "bronze" | "cobre")[] = ["ouro", "prata", "bronze", "cobre"];
+  const numTeams = rankedIndices.length;
+  let globalIdCounter = 0;
+
+  for (let s = 0; s < seriesNames.length; s++) {
+    const startIdx = s * 4;
+    if (startIdx >= numTeams) break;
+    
+    const seriesName = seriesNames[s];
+    const seriesTeams = rankedIndices.slice(startIdx, Math.min(startIdx + 4, numTeams));
+    if (seriesTeams.length < 2) continue;
+
+    if (playoffFormat === "series") {
+      const seriesMatches = generateSeriesRoundRobin(seriesTeams, seriesName);
+      seriesMatches.forEach(m => {
+        m.id = `mp_${globalIdCounter}`;
+        m.globalId = `md_playoff_${seriesName}_${globalIdCounter}`;
+        m.isPlayoff = true;
+        m.playoffSeries = seriesName;
+        matches.push(m);
+        globalIdCounter++;
+      });
+    } else if (playoffFormat === "knockout") {
+      if (seriesTeams.length >= 4) {
+        matches.push({
+          id: `mp_${globalIdCounter}`,
+          globalId: `md_playoff_${seriesName}_semi1`,
+          round: 1,
+          teamA: [seriesTeams[0]],
+          teamB: [seriesTeams[3]],
+          isPlayoff: true,
+          playoffStage: "semifinal",
+          playoffSeries: seriesName,
+          court: 0
+        });
+        globalIdCounter++;
+
+        matches.push({
+          id: `mp_${globalIdCounter}`,
+          globalId: `md_playoff_${seriesName}_semi2`,
+          round: 1,
+          teamA: [seriesTeams[1]],
+          teamB: [seriesTeams[2]],
+          isPlayoff: true,
+          playoffStage: "semifinal",
+          playoffSeries: seriesName,
+          court: 0
+        });
+        globalIdCounter++;
+      } else if (seriesTeams.length === 3) {
+        matches.push({
+          id: `mp_${globalIdCounter}`,
+          globalId: `md_playoff_${seriesName}_semi_single`,
+          round: 1,
+          teamA: [seriesTeams[1]],
+          teamB: [seriesTeams[2]],
+          isPlayoff: true,
+          playoffStage: "semifinal",
+          playoffSeries: seriesName,
+          court: 0
+        });
+        globalIdCounter++;
+      } else if (seriesTeams.length === 2) {
+        matches.push({
+          id: `mp_${globalIdCounter}`,
+          globalId: `md_playoff_${seriesName}_final`,
+          round: 1,
+          teamA: [seriesTeams[0]],
+          teamB: [seriesTeams[1]],
+          isPlayoff: true,
+          playoffStage: "final",
+          playoffSeries: seriesName,
+          court: 0
+        });
+        globalIdCounter++;
+      }
+    }
+  }
+
+  return matches;
+}
+
+function generateSeriesRoundRobin(teamIndices: number[], seriesLabel: "ouro" | "prata" | "bronze" | "cobre"): EngineMatch[] {
+  const pairs = [...teamIndices];
+  if (pairs.length % 2 !== 0) {
+    pairs.push(-1);
+  }
+
+  const n = pairs.length;
+  const numRounds = n - 1;
+  const matchesPerRound = n / 2;
+  const matches: EngineMatch[] = [];
+
+  for (let r = 0; r < numRounds; r++) {
+    for (let m = 0; m < matchesPerRound; m++) {
+      const p1 = pairs[m];
+      const p2 = pairs[n - 1 - m];
+
+      if (p1 !== -1 && p2 !== -1) {
+        matches.push({
+          id: "",
+          globalId: "",
+          round: r + 1,
+          teamA: [p1],
+          teamB: [p2],
+          court: 0,
+          isPlayoff: true,
+          playoffSeries: seriesLabel
+        });
+      }
+    }
+    pairs.splice(1, 0, pairs.pop()!);
+  }
+  return matches;
+}
+

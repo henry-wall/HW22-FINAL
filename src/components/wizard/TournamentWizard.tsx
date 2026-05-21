@@ -26,9 +26,6 @@ export default function TournamentWizard({ events, onComplete, onCancel }: Tourn
 
   function renderStep() {
     const isMixed = state.format === "mixeddoubles";
-    const isFixed = state.format === "fixeddoubles";
-    const isDraw = state.format === "drawdoubles";
-    const isNewDoubles = isFixed || isDraw;
 
     // Step 1 — Format (all formats)
     if (state.step === 1) {
@@ -41,56 +38,13 @@ export default function TournamentWizard({ events, onComplete, onCancel }: Tourn
       );
     }
 
-    // Step 2 — Pairing mode (Super8/KQ), Couple mode (Mixed), or Category (New Doubles)
+    // Step 2 — Couple mode (Mixed) or Category (Others)
     if (state.step === 2) {
       if (isMixed) {
         return (
           <Step2Couple
             selected={state.coupleMode}
             onChange={(m) => update({ coupleMode: m })}
-            onNext={next}
-            onBack={back}
-          />
-        );
-      }
-      if (isNewDoubles) {
-        return (
-          <Step3Category
-            selected={state.category}
-            onChange={(c) => update({ category: c })}
-            onNext={next}
-            onBack={back}
-          />
-        );
-      }
-      return (
-        <Step2Pairing
-          selected={state.pairingMode}
-          onChange={(m) => update({ pairingMode: m })}
-          onNext={next}
-          onBack={back}
-        />
-      );
-    }
-
-    // Step 3 — Category (Super8/KQ) or Settings (Mixed / New Doubles)
-    if (state.step === 3) {
-      if (isMixed || isNewDoubles) {
-        return (
-          <Step4Settings
-            format={state.format!}
-            numPlayers={state.numPlayers}
-            numCourts={state.numCourts}
-            durationType={state.durationType}
-            groupFormat={state.groupFormat}
-            tournamentName={state.tournamentName}
-            matchSettings={state.matchSettings}
-            onChangeNum={(n) => update({ numPlayers: n })}
-            onChangeCourts={(n) => update({ numCourts: n })}
-            onChangeDuration={(d) => update({ durationType: d })}
-            onChangeGroup={(g) => update({ groupFormat: g })}
-            onChangeName={(name) => update({ tournamentName: name })}
-            onChangeMatchSettings={(s) => update({ matchSettings: s })}
             onNext={next}
             onBack={back}
           />
@@ -106,57 +60,33 @@ export default function TournamentWizard({ events, onComplete, onCancel }: Tourn
       );
     }
 
-    // Step 4 — Settings (Super8/KQ) or Victory (Mixed / New Doubles)
-    if (state.step === 4) {
-      if (isMixed || isNewDoubles) {
-        return (
-          <Step5Victory
-            order={state.tiebreakerOrder}
-            onChange={(order) => update({ tiebreakerOrder: order })}
-            durationType={state.durationType}
-            onNext={next}
-            onBack={back}
-          />
-        );
-      }
+    // Step 3 — Settings (All Formats)
+    if (state.step === 3) {
       return (
-          <Step4Settings
-            format={state.format!}
-            numPlayers={state.numPlayers}
-            numCourts={state.numCourts}
-            durationType={state.durationType}
-            groupFormat={state.groupFormat}
-            tournamentName={state.tournamentName}
-            matchSettings={state.matchSettings}
-            onChangeNum={(n) => update({ numPlayers: n })}
-            onChangeCourts={(n) => update({ numCourts: n })}
-            onChangeDuration={(d) => update({ durationType: d })}
-            onChangeGroup={(g) => update({ groupFormat: g })}
-            onChangeName={(name) => update({ tournamentName: name })}
-            onChangeMatchSettings={(s) => update({ matchSettings: s })}
-            onNext={next}
-            onBack={back}
-          />
+        <Step4Settings
+          format={state.format!}
+          numPlayers={state.numPlayers}
+          numCourts={state.numCourts}
+          durationType={state.durationType}
+          groupFormat={state.groupFormat}
+          playoffFormat={state.playoffFormat}
+          tournamentName={state.tournamentName}
+          matchSettings={state.matchSettings}
+          onChangeNum={(n) => update({ numPlayers: n })}
+          onChangeCourts={(n) => update({ numCourts: n })}
+          onChangeDuration={(d) => update({ durationType: d })}
+          onChangeGroup={(g) => update({ groupFormat: g })}
+          onChangePlayoff={(p) => update({ playoffFormat: p })}
+          onChangeName={(name) => update({ tournamentName: name })}
+          onChangeMatchSettings={(s) => update({ matchSettings: s })}
+          onNext={next}
+          onBack={back}
+        />
       );
     }
 
-    // Step 5 — Victory (Super8/KQ) or Players (Mixed / New Doubles)
-    if (state.step === 5) {
-      if (isMixed || isNewDoubles) {
-        return (
-          <Step6Players
-            format={state.format!}
-            coupleMode={state.coupleMode}
-            numPlayers={state.numPlayers}
-            players={players}
-            couples={couples}
-            onPlayersChange={setPlayers}
-            onCouplesChange={setCouples}
-            onFinish={finish}
-            onBack={back}
-          />
-        );
-      }
+    // Step 4 — Victory (All Formats)
+    if (state.step === 4) {
       return (
         <Step5Victory
           order={state.tiebreakerOrder}
@@ -168,8 +98,8 @@ export default function TournamentWizard({ events, onComplete, onCancel }: Tourn
       );
     }
 
-    // Step 6 — Players (Super8/KQ)
-    if (state.step === 6) {
+    // Step 5 — Players (All Formats)
+    if (state.step === 5) {
       return (
         <Step6Players
           format={state.format!}

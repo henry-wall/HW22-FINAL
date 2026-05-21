@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import type { TournamentConfig } from "../../../types/tournament";
 import { useTournamentData } from "../../../hooks/useTournamentData";
-import { generateDoublesSchedule } from "../../../engines/doublesEngine";
+import { generateDoublesSchedule, generateDoublesSeries } from "../../../engines/doublesEngine";
 import type { EngineMatch } from "../../../engines/super8Engine";
 import { formatMatchScore } from "../../../utils/scoreFormatting";
 import { ScoreInput } from "../ScoreInput";
@@ -14,7 +14,8 @@ interface DoublesDashboardProps {
 
 export default function DoublesDashboard({ config, couples }: DoublesDashboardProps) {
   const { data, updateData, updateField, isLoaded } = useTournamentData(config.id);
-  const [activeTab, setActiveTab] = useState<"overview" | "matches" | "operation" | "standings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "matches" | "operation" | "series" | "standings">("overview");
+  const playoffFormat = config.playoffFormat ?? "none";
   const [refereeMatch, setRefereeMatch] = useState<{ match: EngineMatch; court: number } | null>(null);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
 
@@ -123,7 +124,44 @@ export default function DoublesDashboard({ config, couples }: DoublesDashboardPr
     }
   };
 
+  const allGroupMatchesDone = useMemo(() => {
+    const groupMatches = data.completedMatches.filter(m => !m.isPlayoff);
+    const total = data.matches.filter(m => !m.isPlayoff).length;
+    return total > 0 && groupMatches.length >= total;
+  }, [data.completedMatches, data.matches]);
 
+  const handleGeneratePlayoff = () => {
+    if (playoffFormat === "none") return;
+    const sumScore = (val: string | number) => {
+      if (typeof val === "number") return val;
+      if (!val) return 0;
+      return String(val).split("/").reduce((acc, curr) => acc + (Number(curr) || 0), 0);
+    };
+    const pts = Array(config.numPlayers).fill(0);
+    const diff = Array(config.numPlayers).fill(0);
+    const games = Array(config.numPlayers).fill(0);
+    data.completedMatches.filter(m => !m.isPlayoff).forEach(m => {
+      const res = data.matchResults[m.globalId];
+      if (!res || res.scoreA === "" || res.scoreB === "") return;
+      const sA = sumScore(res.scoreA); const sB = sumScore(res.scoreB);
+      const pA = m.teamA[0]; const pB = m.teamB[0];
+      diff[pA] += sA - sB; games[pA] += sA;
+      diff[pB] += sB - sA; games[pB] += sB;
+      if (sA > sB) pts[pA] += 3;
+      else if (sB > sA) pts[pB] += 3;
+      else { pts[pA] += 1; pts[pB] += 1; }
+    });
+    const ranked = Array.from({ length: config.numPlayers }, (_, i) => ({ index: i, pts: pts[i], diff: diff[i], games: games[i] }))
+      .sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.games - a.games)
+      .map(r => r.index);
+    const playoffMatches = generateDoublesSeries(ranked, playoffFormat as "series" | "knockout");
+    updateData({
+      ...data,
+      matches: [...data.matches, ...playoffMatches],
+      matchQueue: [...data.matchQueue, ...playoffMatches]
+    });
+    setActiveTab("series");
+  };
 
   // Ranking calculation
   const ranking = useMemo(() => {
@@ -228,7 +266,7 @@ export default function DoublesDashboard({ config, couples }: DoublesDashboardPr
     <div className="flex-1 flex flex-col mt-4">
       {/* Tabs */}
       <div className="flex px-5 gap-2 mb-4 overflow-x-auto hide-scrollbar">
-        {["overview", "matches", "operation", "standings"].map(t => (
+        {(["overview", "matches", "operation", ...(playoffFormat !== "none" ? ["series"] : []), "standings"]).map(t => (
           <button
             key={t}
             onClick={() => setActiveTab(t as any)}
@@ -236,20 +274,32 @@ export default function DoublesDashboard({ config, couples }: DoublesDashboardPr
               activeTab === t ? "bg-brand-pink text-white" : "surface-card text-secondary hover:text-primary"
             }`}
           >
-            {t === "overview" ? "Visão Geral" : t === "matches" ? "Partidas" : t === "operation" ? "Operação" : "Classificação"}
+            {t === "overview" ? "Visão Geral" : t === "matches" ? "Partidas" : t === "operation" ? "Operação" : t === "series" ? "🏆 Fase Final" : "Classificação"}
           </button>
         ))}
       </div>
 
       <div className="px-5 flex-1 overflow-y-auto pb-10">
         {activeTab === "overview" && (
-          <div className="surface-card">
-            <h3 className="font-bold text-primary mb-2">Resumo {config.format === "fixeddoubles" ? "Duplas Fixas" : "Duplas Sorteadas"}</h3>
-            <p className="text-sm text-secondary mb-4">Torneio em formato de pontos corridos com {config.numPlayers} duplas.</p>
+          <div className="surface-card space-y-4">
+            <h3 className="font-bold text-primary">{config.format === "fixeddoubles" ? "Duplas Fixas" : "Duplas Sorteadas"}</h3>
+            <p className="text-sm text-secondary">{config.numPlayers} duplas · {config.numCourts} quadra(s) · {playoffFormat !== "none" ? (playoffFormat === "series" ? "Fase Final: Séries" : "Fase Final: Mata-Mata") : "Apenas Classificatória"}</p>
             {data.status === "planning" ? (
               <button onClick={handleStartOperation} className="btn-primary w-full">▶ Iniciar Torneio (Modo Operação)</button>
             ) : (
-              <div className="bg-green-500/10 text-green-600 dark:text-green-400 p-3 rounded-lg border border-green-500/20 text-sm font-bold text-center">🟢 Torneio em andamento</div>
+              <div className="space-y-3">
+                <div className="bg-green-500/10 text-green-600 dark:text-green-400 p-3 rounded-lg border border-green-500/20 text-sm font-bold text-center">🟢 Torneio em andamento</div>
+                {playoffFormat !== "none" && allGroupMatchesDone && !data.matches.some(m => m.isPlayoff) && (
+                  <button onClick={handleGeneratePlayoff} className="w-full py-3 rounded-xl font-black text-sm uppercase tracking-widest bg-gradient-to-r from-yellow-500 to-amber-400 text-black shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:opacity-90 transition-opacity">
+                    🏆 Gerar Fase Final ({playoffFormat === "series" ? "Séries" : "Mata-Mata"})
+                  </button>
+                )}
+                {data.matches.some(m => m.isPlayoff) && (
+                  <button onClick={() => setActiveTab("series")} className="w-full py-3 rounded-xl font-black text-sm uppercase tracking-widest border-2 border-yellow-500/50 text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20 transition-colors">
+                    🏆 Ver Fase Final
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -370,6 +420,63 @@ export default function DoublesDashboard({ config, couples }: DoublesDashboardPr
             </div>
           </div>
         )}
+        {activeTab === "series" && playoffFormat !== "none" && (() => {
+          const SERIES_CONFIG: Record<string, { label: string; emoji: string; border: string; bg: string; text: string }> = {
+            ouro:   { label: "Série Ouro",   emoji: "🥇", border: "border-yellow-400",  bg: "bg-yellow-500/10",  text: "text-yellow-400" },
+            prata:  { label: "Série Prata",  emoji: "🥈", border: "border-slate-400",   bg: "bg-slate-500/10",   text: "text-slate-300" },
+            bronze: { label: "Série Bronze", emoji: "🥉", border: "border-orange-400",  bg: "bg-orange-500/10",  text: "text-orange-400" },
+            cobre:  { label: "Série Cobre",  emoji: "🔶", border: "border-purple-400",  bg: "bg-purple-500/10",  text: "text-purple-400" },
+          };
+          const playoffMatches = data.matches.filter(m => m.isPlayoff);
+          if (playoffMatches.length === 0) {
+            return (
+              <div className="surface-card text-center py-12">
+                <div className="text-4xl mb-3">🏆</div>
+                <p className="font-black text-primary text-lg">Fase Final ainda não gerada</p>
+                <p className="text-sm text-muted mt-1">Finalize todas as partidas da fase de grupos para liberar este botão.</p>
+              </div>
+            );
+          }
+          const seriesKeys = ["ouro", "prata", "bronze", "cobre"] as const;
+          return (
+            <div className="space-y-6">
+              {seriesKeys.map(sKey => {
+                const sm = playoffMatches.filter(m => m.playoffSeries === sKey);
+                if (sm.length === 0) return null;
+                const cfg = SERIES_CONFIG[sKey];
+                return (
+                  <div key={sKey} className={`surface-card border-2 ${cfg.border}`}>
+                    <div className={`flex items-center gap-2 mb-4`}>
+                      <span className="text-2xl">{cfg.emoji}</span>
+                      <h3 className={`font-black text-xl ${cfg.text}`}>{cfg.label}</h3>
+                      {playoffFormat === "knockout" && <span className="ml-auto text-[10px] uppercase tracking-widest text-muted font-bold">Mata-Mata</span>}
+                    </div>
+                    <div className="space-y-3">
+                      {sm.map(m => {
+                        const res = data.matchResults[m.globalId];
+                        const { text: scoreText, winner } = formatMatchScore(res?.scoreA, res?.scoreB);
+                        const stageLabel = m.playoffStage === "semifinal" ? "Semifinal" : m.playoffStage === "final" ? "Final" : `Rodada ${m.round}`;
+                        return (
+                          <div key={m.globalId} onClick={() => setEditingMatchId(m.globalId)} className={`flex flex-col p-3 rounded-xl border ${cfg.border}/30 ${cfg.bg} cursor-pointer hover:border-opacity-100 transition-all group`}>
+                            <div className="flex justify-between items-center mb-2">
+                              <span className={`text-[10px] font-black uppercase tracking-widest ${cfg.text}`}>{stageLabel}</span>
+                              <span className="text-[10px] text-muted opacity-0 group-hover:opacity-100 transition-opacity">✏️ Editar</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className={`flex-1 text-right text-sm font-black truncate ${winner === "A" ? "text-yellow-400" : "text-white"}`}>{winner === "A" && "👑 "}{getTeamName(m.teamA)}</div>
+                              <span className="text-sm font-black text-white bg-black/40 border border-white/10 px-3 py-1 rounded-lg min-w-[3.5rem] text-center shrink-0">{scoreText}</span>
+                              <div className={`flex-1 text-left text-sm font-black truncate ${winner === "B" ? "text-yellow-400" : "text-white"}`}>{getTeamName(m.teamB)}{winner === "B" && " 👑"}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {activeTab === "standings" && (
           <div className="space-y-6">
