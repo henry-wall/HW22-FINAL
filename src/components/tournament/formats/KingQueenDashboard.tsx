@@ -5,6 +5,7 @@ import { generateKingQueenSchedule, generateKingQueenSeries } from "../../../eng
 import type { KingQueenRound } from "../../../engines/kingQueenEngine";
 import type { EngineMatch } from "../../../engines/super8Engine";
 import { formatMatchScore } from "../../../utils/scoreFormatting";
+import { sumScore, getMatchWinner } from "../../../utils/rankingUtils";
 import { ScoreInput } from "../ScoreInput";
 import RefereeScoreboard from "../RefereeScoreboard";
 
@@ -61,11 +62,6 @@ export default function KingQueenDashboard({ config, players }: KingQueenDashboa
   const isGame6ScoreValid = (scoreA: string | number, scoreB: string | number): boolean => {
     if (config.durationType !== "game6") return true;
     if (scoreA === "" || scoreB === "") return true;
-    const sumScore = (val: string | number) => {
-      if (typeof val === "number") return val;
-      if (!val) return 0;
-      return String(val).split("/").reduce((acc, curr) => acc + (Number(curr) || 0), 0);
-    };
     return sumScore(scoreA) + sumScore(scoreB) === 6;
   };
 
@@ -82,23 +78,21 @@ export default function KingQueenDashboard({ config, players }: KingQueenDashboa
           rnd.matches.forEach(m => {
             const res = data.matchResults[m.globalId];
             if (!res || res.scoreA === "" || res.scoreB === "") return;
-            const sumScore = (val: string | number) => {
-              if (typeof val === "number") return val;
-              if (!val) return 0;
-              return String(val).split("/").reduce((acc, curr) => acc + (Number(curr) || 0), 0);
-            };
+
+            // getMatchWinner conta sets ganhos, não soma de games (correção do bug)
+            const winner = getMatchWinner(res.scoreA, res.scoreB);
             const sA = sumScore(res.scoreA);
             const sB = sumScore(res.scoreB);
-            
+
             const pA = m.teamA;
             const pB = m.teamB;
 
             pA.forEach(p => { diff[p] += sA - sB; gp[p] += sA; });
             pB.forEach(p => { diff[p] += sB - sA; gp[p] += sB; });
-            
-            if (sA > sB) {
+
+            if (winner === "A") {
               pA.forEach(p => { pts[p] += 3; w[p]++; });
-            } else if (sB > sA) {
+            } else if (winner === "B") {
               pB.forEach(p => { pts[p] += 3; w[p]++; });
             }
           });
@@ -296,28 +290,25 @@ export default function KingQueenDashboard({ config, players }: KingQueenDashboa
     const gp = Array(config.numPlayers).fill(0);
 
     if (data.seriesRounds && data.seriesRounds[s]) {
-      const sumScore = (val: string | number) => {
-        if (typeof val === "number") return val;
-        if (!val) return 0;
-        return String(val).split("/").reduce((acc, curr) => acc + (Number(curr) || 0), 0);
-      };
-
       data.seriesRounds[s].forEach((rnd: KingQueenRound) => {
         rnd.matches.forEach(m => {
           const res = data.matchResults[m.globalId];
           if (!res || res.scoreA === "" || res.scoreB === "") return;
+
+          // getMatchWinner conta sets ganhos, não soma de games (correção do bug)
+          const winner = getMatchWinner(res.scoreA, res.scoreB);
           const sA = sumScore(res.scoreA);
           const sB = sumScore(res.scoreB);
-          
+
           const pA = m.teamA;
           const pB = m.teamB;
 
           pA.forEach(p => { diff[p] += sA - sB; gp[p] += sA; });
           pB.forEach(p => { diff[p] += sB - sA; gp[p] += sB; });
-          
-          if (sA > sB) {
+
+          if (winner === "A") {
             pA.forEach(p => { pts[p] += 3; w[p]++; });
-          } else if (sB > sA) {
+          } else if (winner === "B") {
             pB.forEach(p => { pts[p] += 3; w[p]++; });
           }
         });

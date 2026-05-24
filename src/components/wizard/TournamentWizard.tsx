@@ -1,6 +1,5 @@
 import StepProgress from "./StepProgress";
 import Step1Format from "./Step1Format";
-import Step2Pairing from "./Step2Pairing";
 import Step2Couple from "./Step2Couple";
 import Step3Category from "./Step3Category";
 import Step4Settings from "./Step4Settings";

@@ -4,6 +4,7 @@ import { useTournamentData } from "../../../hooks/useTournamentData";
 import { generateSuper8Schedule } from "../../../engines/super8Engine";
 import type { EngineMatch } from "../../../engines/super8Engine";
 import { formatMatchScore } from "../../../utils/scoreFormatting";
+import { sumScore, getMatchWinner } from "../../../utils/rankingUtils";
 import { ScoreInput } from "../ScoreInput";
 import RefereeScoreboard from "../RefereeScoreboard";
 // import { SyncStatusBadge } from "../../shared/SyncStatusBadge";
@@ -47,12 +48,7 @@ export default function Super8Dashboard({ config, players }: Super8DashboardProp
   // Validates that scoreA + scoreB === 6 for game6 format
   const isGame6ScoreValid = (scoreA: string | number, scoreB: string | number): boolean => {
     if (config.durationType !== "game6") return true;
-    if (scoreA === "" || scoreB === "") return true; // not yet filled
-    const sumScore = (val: string | number) => {
-      if (typeof val === "number") return val;
-      if (!val) return 0;
-      return String(val).split("/").reduce((acc, curr) => acc + (Number(curr) || 0), 0);
-    };
+    if (scoreA === "" || scoreB === "") return true;
     return sumScore(scoreA) + sumScore(scoreB) === 6;
   };
 
@@ -241,25 +237,21 @@ export default function Super8Dashboard({ config, players }: Super8DashboardProp
 
     const matchesToProcess = data.status === "planning" ? data.matches : data.completedMatches;
 
-    const sumScore = (val: string | number) => {
-      if (typeof val === "number") return val;
-      if (!val) return 0;
-      return String(val).split("/").reduce((acc, curr) => acc + (Number(curr) || 0), 0);
-    };
-
     const processMatch = (m: EngineMatch) => {
       const res = data.matchResults[m.globalId];
       if (!res || res.scoreA === "" || res.scoreB === "") return;
       const sA = sumScore(res.scoreA);
       const sB = sumScore(res.scoreB);
+      // getMatchWinner conta sets ganhos, não soma de games (correção do bug)
+      const winner = getMatchWinner(res.scoreA, res.scoreB);
 
       [...m.teamA].forEach(p => {
-        if (sA > sB) wins[p]++;
+        if (winner === "A") wins[p]++;
         diff[p] += (sA - sB);
         games[p] += sA;
       });
       [...m.teamB].forEach(p => {
-        if (sB > sA) wins[p]++;
+        if (winner === "B") wins[p]++;
         diff[p] += (sB - sA);
         games[p] += sB;
       });

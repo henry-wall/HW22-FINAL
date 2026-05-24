@@ -4,6 +4,7 @@ import { useTournamentData } from "../../../hooks/useTournamentData";
 import { generateDoublesSchedule, generateDoublesSeries } from "../../../engines/doublesEngine";
 import type { EngineMatch } from "../../../engines/super8Engine";
 import { formatMatchScore } from "../../../utils/scoreFormatting";
+import { sumScore, getMatchWinner } from "../../../utils/rankingUtils";
 import { ScoreInput } from "../ScoreInput";
 import RefereeScoreboard from "../RefereeScoreboard";
 
@@ -21,11 +22,6 @@ export default function DoublesDashboard({ config, couples }: DoublesDashboardPr
 
   const isGame6ScoreValid = (scoreA: string | number, scoreB: string | number) => {
     if (config.durationType !== "game6") return true;
-    const sumScore = (val: string | number) => {
-      if (typeof val === "number") return val;
-      if (!val) return 0;
-      return String(val).split("/").reduce((acc, curr) => acc + (Number(curr) || 0), 0);
-    };
     return sumScore(scoreA) + sumScore(scoreB) === 6;
   };
 
@@ -132,11 +128,6 @@ export default function DoublesDashboard({ config, couples }: DoublesDashboardPr
 
   const handleGeneratePlayoff = () => {
     if (playoffFormat === "none") return;
-    const sumScore = (val: string | number) => {
-      if (typeof val === "number") return val;
-      if (!val) return 0;
-      return String(val).split("/").reduce((acc, curr) => acc + (Number(curr) || 0), 0);
-    };
     const pts = Array(config.numPlayers).fill(0);
     const diff = Array(config.numPlayers).fill(0);
     const games = Array(config.numPlayers).fill(0);
@@ -147,8 +138,10 @@ export default function DoublesDashboard({ config, couples }: DoublesDashboardPr
       const pA = m.teamA[0]; const pB = m.teamB[0];
       diff[pA] += sA - sB; games[pA] += sA;
       diff[pB] += sB - sA; games[pB] += sB;
-      if (sA > sB) pts[pA] += 3;
-      else if (sB > sA) pts[pB] += 3;
+      // getMatchWinner conta sets ganhos, não soma de games (correção do bug)
+      const winner = getMatchWinner(res.scoreA, res.scoreB);
+      if (winner === "A") pts[pA] += 3;
+      else if (winner === "B") pts[pB] += 3;
       else { pts[pA] += 1; pts[pB] += 1; }
     });
     const ranked = Array.from({ length: config.numPlayers }, (_, i) => ({ index: i, pts: pts[i], diff: diff[i], games: games[i] }))
@@ -172,12 +165,6 @@ export default function DoublesDashboard({ config, couples }: DoublesDashboardPr
 
     const matchesToProcess = data.status === "planning" ? data.matches : data.completedMatches;
 
-    const sumScore = (val: string | number) => {
-      if (typeof val === "number") return val;
-      if (!val) return 0;
-      return String(val).split("/").reduce((acc, curr) => acc + (Number(curr) || 0), 0);
-    };
-
     matchesToProcess.forEach(m => {
       const res = data.matchResults[m.globalId];
       if (!res || res.scoreA === "" || res.scoreB === "") return;
@@ -192,8 +179,10 @@ export default function DoublesDashboard({ config, couples }: DoublesDashboardPr
       diff[pB] += (sB - sA);
       games[pB] += sB;
 
-      if (sA > sB) { wins[pA]++; pts[pA] += 3; }
-      else if (sB > sA) { wins[pB]++; pts[pB] += 3; }
+      // getMatchWinner conta sets ganhos, não soma de games (correção do bug)
+      const winner = getMatchWinner(res.scoreA, res.scoreB);
+      if (winner === "A") { wins[pA]++; pts[pA] += 3; }
+      else if (winner === "B") { wins[pB]++; pts[pB] += 3; }
       else { pts[pA] += 1; pts[pB] += 1; }
     });
 
