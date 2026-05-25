@@ -41,6 +41,18 @@ export class SupabaseService implements StorageService {
     if (error) { console.error("Supabase save error:", error); throw new Error(error.message); }
   }
 
+  async delete(key: string): Promise<void> {
+    if (!this.isConfigured || !this.client) return;
+    const { error } = await this.client
+      .from("key_value_store")
+      .delete()
+      .eq("key", key);
+    if (error) {
+      console.error("Supabase delete error:", error);
+      throw new Error(error.message);
+    }
+  }
+
   private channels: Record<string, any> = {};
 
   subscribe<T>(key: string, callback: (newValue: T) => void): () => void {

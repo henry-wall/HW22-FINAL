@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import PresentationMode from "./components/tournament/PresentationMode";
-import { StorageProvider } from "./services/storage/StorageContext";
+import { StorageProvider, useStorage } from "./services/storage/StorageContext";
 import { ThemeProvider } from "./services/ThemeContext";
 import { useTournamentState } from "./hooks/useTournamentState";
 import type { TournamentConfig, TournamentEvent } from "./types/tournament";
@@ -20,6 +20,7 @@ interface AppData {
 const DEFAULT_DATA: AppData = { tournaments: [], players: {}, events: [] };
 
 function AppContent() {
+  const { service } = useStorage();
   const { data, updateField, isLoaded } = useTournamentState<AppData>("wallbt_v2_app", DEFAULT_DATA);
   const [view, setView] = useState<AppView>("home");
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
@@ -92,6 +93,19 @@ function AppContent() {
     updateField("tournaments", newTournaments);
     updateField("events", (data.events || []).filter(e => e.id !== eventId));
   }, [data.events, data.tournaments, updateField]);
+
+  const handleDeleteTournament = useCallback((tournamentId: string) => {
+    const newTournaments = data.tournaments.filter(t => t.id !== tournamentId);
+    updateField("tournaments", newTournaments);
+
+    if (data.players && data.players[tournamentId]) {
+      const newPlayers = { ...data.players };
+      delete newPlayers[tournamentId];
+      updateField("players", newPlayers);
+    }
+
+    service.delete(`wallbt_v2_tournament_${tournamentId}`).catch(console.error);
+  }, [data, updateField, service]);
 
   const handleLinkTournament = useCallback((tournamentId: string, eventId: string | undefined) => {
     const newTournaments = data.tournaments.map(t =>
@@ -166,6 +180,7 @@ function AppContent() {
       onOpenTournament={handleOpenTournament}
       onCreateEvent={handleCreateEvent}
       onDeleteEvent={handleDeleteEvent}
+      onDeleteTournament={handleDeleteTournament}
       onLinkTournament={handleLinkTournament}
     />
   );

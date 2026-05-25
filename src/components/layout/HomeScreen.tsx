@@ -15,6 +15,7 @@ interface HomeScreenProps {
   onOpenTournament: (id: string) => void;
   onCreateEvent: (name: string) => TournamentEvent;
   onDeleteEvent: (eventId: string) => void;
+  onDeleteTournament: (tournamentId: string) => void;
   onLinkTournament: (tournamentId: string, eventId: string | undefined) => void;
 }
 
@@ -25,6 +26,7 @@ export default function HomeScreen({
   onOpenTournament,
   onCreateEvent,
   onDeleteEvent,
+  onDeleteTournament,
   onLinkTournament,
 }: HomeScreenProps) {
   const { mode, setMode, migrateLocalToCloud } = useStorage();
@@ -38,6 +40,7 @@ export default function HomeScreen({
 
   // Delete confirmation state
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null);
 
   const handleCreateEvent = () => {
     if (!newEventName.trim()) return;
@@ -60,16 +63,30 @@ export default function HomeScreen({
         config={t} 
         onOpen={onOpenTournament} 
       />
-      {/* Absolute Link Button */}
-      <button
-        onClick={(e) => { e.stopPropagation(); setLinkingTournamentId(t.id); }}
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-black/40 backdrop-blur-md text-white/50 hover:text-brand-cyan transition-all border border-white/10 z-10"
-        title="Vincular a um Evento"
-      >
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-        </svg>
-      </button>
+      {/* Action Buttons Container */}
+      <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all z-10">
+        {/* Link Button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); setLinkingTournamentId(t.id); }}
+          className="p-1.5 rounded-lg bg-black/40 backdrop-blur-md text-white/50 hover:text-brand-cyan transition-all border border-white/10"
+          title="Vincular a um Evento"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+        </button>
+
+        {/* Delete Button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); setDeletingTournamentId(t.id); }}
+          className="p-1.5 rounded-lg bg-black/40 backdrop-blur-md text-white/50 hover:text-red-500 transition-all border border-white/10"
+          title="Excluir Torneio"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 
@@ -176,6 +193,7 @@ export default function HomeScreen({
               event={ev}
               tournaments={tournamentsByEvent[ev.id] || []}
               onDelete={setDeletingEventId}
+              onDeleteTournament={setDeletingTournamentId}
               onOpen={onOpenTournament}
             />
           ))}
@@ -284,12 +302,40 @@ export default function HomeScreen({
 
       {deletingEventId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="surface-card w-full max-w-sm text-center">
-            <h3 className="text-lg font-black text-primary mb-4">Excluir Evento?</h3>
+          <div className="surface-card w-full max-w-sm text-center animate-slide-up">
+            <h3 className="text-lg font-black text-primary mb-2">Excluir Evento?</h3>
+            <p className="text-muted text-xs mb-6 px-1">
+              Deseja realmente excluir o evento <strong>{events.find(e => e.id === deletingEventId)?.name}</strong>? As categorias vinculadas a ele se tornarão avulsas, mas não serão deletadas.
+            </p>
             <div className="flex gap-2">
               <button onClick={() => setDeletingEventId(null)} className="btn-secondary py-2 text-sm flex-1">Cancelar</button>
               <button
                 onClick={() => { onDeleteEvent(deletingEventId); setDeletingEventId(null); }}
+                className="btn-primary bg-red-500 hover:bg-red-600 py-2 text-sm flex-1"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletingTournamentId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="surface-card w-full max-w-sm text-center animate-slide-up">
+            <h3 className="text-lg font-black text-primary mb-2">Excluir Torneio?</h3>
+            <p className="text-muted text-xs mb-6 px-1">
+              Deseja realmente excluir o torneio <strong>{tournaments.find(t => t.id === deletingTournamentId)?.name}</strong>? Esta ação apagará permanentemente todos os jogos e resultados.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeletingTournamentId(null)} className="btn-secondary py-2 text-sm flex-1">Cancelar</button>
+              <button
+                onClick={() => {
+                  if (deletingTournamentId) {
+                    onDeleteTournament(deletingTournamentId);
+                    setDeletingTournamentId(null);
+                  }
+                }}
                 className="btn-primary bg-red-500 hover:bg-red-600 py-2 text-sm flex-1"
               >
                 Excluir

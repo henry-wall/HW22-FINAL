@@ -20,6 +20,15 @@ export class LocalStorageService implements StorageService {
     }
   }
 
+  async delete(key: string): Promise<void> {
+    try {
+      window.localStorage.removeItem(key);
+      window.dispatchEvent(new CustomEvent("local-storage-update", { detail: { key, value: null } }));
+    } catch (error) {
+      console.warn(`Error deleting key "${key}" from localStorage`, error);
+    }
+  }
+
   subscribe<T>(key: string, callback: (newValue: T) => void): () => void {
     const handler = (event: Event) => {
       const customEvent = event as CustomEvent;
