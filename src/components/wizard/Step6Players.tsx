@@ -50,6 +50,35 @@ export default function Step6Players({
     ? couples
     : Array(numPlayers).fill(null).map((_, i) => couples[i] || { manName: "", womanName: "" });
 
+  // Find duplicates across all inputs in Step6Players
+  const allNamesList = (isMixed && coupleMode === "draw")
+    ? [...men, ...women]
+    : (format === "fixeddoubles" || (isMixed && coupleMode === "fixed"))
+      ? currentCouples.flatMap(c => [c.manName, c.womanName])
+      : currentPlayers;
+
+  const normalizedNames = allNamesList.map(name => name.trim().toLowerCase()).filter(Boolean);
+  const duplicateNames = new Set<string>();
+  const seenNames = new Set<string>();
+  for (const name of normalizedNames) {
+    if (seenNames.has(name)) {
+      duplicateNames.add(name);
+    } else {
+      seenNames.add(name);
+    }
+  }
+
+  const isDuplicate = (name: string) => {
+    const norm = name?.trim().toLowerCase();
+    return norm ? duplicateNames.has(norm) : false;
+  };
+
+  const duplicateOrigNames = allNamesList.filter(name => {
+    const norm = name?.trim().toLowerCase();
+    return norm && duplicateNames.has(norm);
+  });
+  const uniqueDuplicateOrigNames = Array.from(new Set(duplicateOrigNames.map(n => n.trim())));
+
   function updatePlayer(idx: number, val: string) {
     const updated = [...currentPlayers];
     updated[idx] = val;
@@ -112,6 +141,7 @@ export default function Step6Players({
   }
 
   function canFinish(): boolean {
+    if (duplicateNames.size > 0) return false;
     if (isMixed || format === "fixeddoubles") {
       if (isMixed && coupleMode === "draw") {
         return men.filter(m => m.trim()).length >= numPlayers && women.filter(w => w.trim()).length >= numPlayers;
@@ -145,7 +175,7 @@ export default function Step6Players({
                 {Array(numPlayers).fill(null).map((_, i) => (
                   <input
                     key={i}
-                    className="input-dark text-sm py-2"
+                    className={`input-dark text-sm py-2 ${isDuplicate(men[i]) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`}
                     placeholder={`Homem ${i + 1}`}
                     value={men[i] || ""}
                     onChange={e => {
@@ -171,7 +201,7 @@ export default function Step6Players({
                 {Array(numPlayers).fill(null).map((_, i) => (
                   <input
                     key={i}
-                    className="input-dark text-sm py-2"
+                    className={`input-dark text-sm py-2 ${isDuplicate(women[i]) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`}
                     placeholder={`Mulher ${i + 1}`}
                     value={women[i] || ""}
                     onChange={e => {
@@ -203,7 +233,7 @@ export default function Step6Players({
           <button
             className="btn-cyan w-full mb-4"
             onClick={handleDrawCouples}
-            disabled={men.filter(m => m.trim()).length < numPlayers || women.filter(w => w.trim()).length < numPlayers}
+            disabled={men.filter(m => m.trim()).length < numPlayers || women.filter(w => w.trim()).length < numPlayers || duplicateNames.size > 0}
           >
             🎲 Sortear Casais
           </button>
@@ -246,13 +276,13 @@ export default function Step6Players({
                 <p className="text-xs font-bold mb-2 text-brand-pink">Casal {i + 1}</p>
                 <div className="grid grid-cols-2 gap-2">
                   <input
-                    className="input-dark text-sm py-2"
+                    className={`input-dark text-sm py-2 ${isDuplicate(c.manName) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`}
                     placeholder={format === "fixeddoubles" ? "Parceiro 1" : "♂ Homem"}
                     value={c.manName}
                     onChange={e => updateCouple(i, "manName", e.target.value)}
                   />
                   <input
-                    className="input-dark text-sm py-2"
+                    className={`input-dark text-sm py-2 ${isDuplicate(c.womanName) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`}
                     placeholder={format === "fixeddoubles" ? "Parceiro 2" : "♀ Mulher"}
                     value={c.womanName}
                     onChange={e => updateCouple(i, "womanName", e.target.value)}
@@ -297,7 +327,7 @@ export default function Step6Players({
                 {i + 1}
               </span>
               <input
-                className="input-dark text-sm py-2.5"
+                className={`input-dark text-sm py-2.5 ${isDuplicate(currentPlayers[i]) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`}
                 placeholder={`Jogador ${i + 1}`}
                 value={currentPlayers[i] || ""}
                 onChange={e => updatePlayer(i, e.target.value)}
@@ -317,6 +347,14 @@ export default function Step6Players({
 
   return (
     <>
+      {duplicateNames.size > 0 && (
+        <div className="p-3 mb-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-500 text-xs font-bold animate-fade-in flex items-center gap-2">
+          <span>⚠️</span>
+          <span>
+            Existem atletas com nomes duplicados: {uniqueDuplicateOrigNames.map(n => `"${n}"`).join(", ")}. Por favor, utilize nomes diferentes para cada atleta para evitar conflitos no torneio.
+          </span>
+        </div>
+      )}
       {renderContent()}
 
 

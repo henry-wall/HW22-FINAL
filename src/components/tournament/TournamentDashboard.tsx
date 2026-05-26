@@ -90,6 +90,41 @@ export default function TournamentDashboard({
   const couples = usesCouples ? (initialPlayers as { manName: string; womanName: string }[]) : [];
   const players = !usesCouples ? (initialPlayers as string[]) : [];
 
+  const duplicateEditingNames = useMemo(() => {
+    if (!isEditingPlayers) return new Set<string>();
+    const allNames = usesCouples
+      ? (editingPlayers as { manName: string; womanName: string }[]).flatMap(c => [c?.manName || "", c?.womanName || ""])
+      : (editingPlayers as string[]);
+    const normalized = allNames.map(name => name?.trim().toLowerCase()).filter(Boolean);
+    const duplicates = new Set<string>();
+    const seen = new Set<string>();
+    for (const name of normalized) {
+      if (seen.has(name)) {
+        duplicates.add(name);
+      } else {
+        seen.add(name);
+      }
+    }
+    return duplicates;
+  }, [editingPlayers, isEditingPlayers, usesCouples]);
+
+  const isEditingDuplicate = (name: string) => {
+    const norm = name?.trim().toLowerCase();
+    return norm ? duplicateEditingNames.has(norm) : false;
+  };
+
+  const duplicateEditingOrigNames = useMemo(() => {
+    if (duplicateEditingNames.size === 0) return [];
+    const allNames = usesCouples
+      ? (editingPlayers as { manName: string; womanName: string }[]).flatMap(c => [c?.manName || "", c?.womanName || ""])
+      : (editingPlayers as string[]);
+    const filtered = allNames.filter(name => {
+      const norm = name?.trim().toLowerCase();
+      return norm && duplicateEditingNames.has(norm);
+    });
+    return Array.from(new Set(filtered.map(n => n.trim())));
+  }, [editingPlayers, duplicateEditingNames, usesCouples]);
+
   const globalRanking = useMemo(() => {
     if (!data) return [];
     if (config.format === "mixeddoubles") return calculateMixedDoublesRanking(config, data, couples);
@@ -372,15 +407,25 @@ export default function TournamentDashboard({
             <h2 className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">Jogadores Inscritos</h2>
             <button 
               onClick={() => isEditingPlayers ? handleSavePlayers() : setIsEditingPlayers(true)}
-              className="text-[10px] font-black text-brand-cyan uppercase hover:opacity-70 flex items-center gap-1.5"
+              disabled={isEditingPlayers && duplicateEditingNames.size > 0}
+              className="text-[10px] font-black text-brand-cyan uppercase hover:opacity-70 flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
             >
               {isEditingPlayers ? "💾 Salvar" : "✏️ Editar"}
             </button>
           </div>
           
+          {isEditingPlayers && duplicateEditingNames.size > 0 && (
+            <div className="p-2 mb-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 text-[10px] font-bold animate-fade-in flex items-center gap-1.5">
+              <span>⚠️</span>
+              <span>
+                Nomes duplicados: {duplicateEditingOrigNames.map(n => `"${n}"`).join(", ")}. Forneça nomes únicos para salvar.
+              </span>
+            </div>
+          )}
+
           <div className="overflow-y-auto custom-scrollbar max-h-[180px] pr-2">
             {isEditingPlayers ? (
-              isMixed ? (
+              usesCouples ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                   {editingPlayers.map((c, i) => (
                     <div key={i} className="flex items-center gap-2 bg-page p-1.5 rounded-lg border border-border-main shadow-sm">
@@ -388,16 +433,26 @@ export default function TournamentDashboard({
                         {i + 1}
                       </span>
                       <div className="flex flex-col gap-1 flex-1">
-                        <input className="input-dark h-6 text-[10px]" value={c.manName} onChange={e => {
-                          const newArr = [...editingPlayers];
-                          newArr[i].manName = e.target.value;
-                          setEditingPlayers(newArr);
-                        }} placeholder="Ele" />
-                        <input className="input-dark h-6 text-[10px]" value={c.womanName} onChange={e => {
-                          const newArr = [...editingPlayers];
-                          newArr[i].womanName = e.target.value;
-                          setEditingPlayers(newArr);
-                        }} placeholder="Ela" />
+                        <input 
+                          className={`input-dark h-6 text-[10px] ${isEditingDuplicate(c.manName) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`} 
+                          value={c.manName} 
+                          onChange={e => {
+                            const newArr = [...editingPlayers];
+                            newArr[i].manName = e.target.value;
+                            setEditingPlayers(newArr);
+                          }} 
+                          placeholder={isMixed ? "Ele" : "Parceiro 1"} 
+                        />
+                        <input 
+                          className={`input-dark h-6 text-[10px] ${isEditingDuplicate(c.womanName) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`} 
+                          value={c.womanName} 
+                          onChange={e => {
+                            const newArr = [...editingPlayers];
+                            newArr[i].womanName = e.target.value;
+                            setEditingPlayers(newArr);
+                          }} 
+                          placeholder={isMixed ? "Ela" : "Parceiro 2"} 
+                        />
                       </div>
                     </div>
                   ))}
@@ -409,17 +464,21 @@ export default function TournamentDashboard({
                       <span className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 bg-brand-pink text-brand-cyan">
                         {i + 1}
                       </span>
-                      <input className="input-dark flex-1 h-7 text-[11px]" value={p} onChange={e => {
-                        const newArr = [...editingPlayers];
-                        newArr[i] = e.target.value;
-                        setEditingPlayers(newArr);
-                      }} />
+                      <input 
+                        className={`input-dark flex-1 h-7 text-[11px] ${isEditingDuplicate(p) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`} 
+                        value={p} 
+                        onChange={e => {
+                          const newArr = [...editingPlayers];
+                          newArr[i] = e.target.value;
+                          setEditingPlayers(newArr);
+                        }} 
+                      />
                     </div>
                   ))}
                 </div>
               )
             ) : (
-              isMixed ? (
+              usesCouples ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
                   {couples.map((c, i) => (
                     <div key={i} className="bg-page/50 p-1.5 rounded-lg border border-border-main/50 flex items-center gap-2">

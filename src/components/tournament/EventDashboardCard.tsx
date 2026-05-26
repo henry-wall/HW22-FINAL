@@ -25,6 +25,7 @@ export function EventDashboardCard({ event, tournaments, onDelete, onDeleteTourn
         <button
           onClick={() => onDelete(event.id)}
           className="p-2 rounded-lg text-muted hover:text-red-500 hover:bg-red-500/10 transition-all"
+          title="Excluir Evento"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -62,12 +63,12 @@ function EventTournamentRow({
   return (
     <div 
       onClick={() => onOpen(config.id)}
-      className="flex items-center gap-4 p-3 bg-black/20 rounded-xl border border-white/5 group hover:border-brand-pink/50 transition-all cursor-pointer relative"
+      className="flex items-center gap-4 p-3 pr-12 bg-black/20 rounded-xl border border-white/5 group hover:border-brand-pink/50 transition-all cursor-pointer relative"
     >
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center mb-1.5">
           <span className="font-bold text-sm text-primary truncate mr-2">{config.name}</span>
-          <span className="text-[10px] font-black text-brand-cyan uppercase mr-6">{formatRemainingTime(stats.estimatedRemainingTime)}</span>
+          <span className="text-[10px] font-black text-brand-cyan uppercase mr-2">{formatRemainingTime(stats.estimatedRemainingTime)}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
@@ -81,7 +82,7 @@ function EventTournamentRow({
       </div>
       <button
         onClick={(e) => { e.stopPropagation(); onDeleteTournament(config.id); }}
-        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-muted hover:text-red-500 hover:bg-red-500/10 transition-all absolute right-2 top-1/2 -translate-y-1/2 z-10"
+        className="p-1.5 rounded-lg text-muted hover:text-red-500 hover:bg-red-500/10 transition-all absolute right-2 top-1/2 -translate-y-1/2 z-10"
         title="Excluir Torneio"
       >
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
