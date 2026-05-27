@@ -7,10 +7,11 @@ interface EventDashboardCardProps {
   event: TournamentEvent;
   tournaments: TournamentConfig[];
   onDelete: (id: string) => void;
+  onDeleteTournament?: (id: string) => void;
   onOpen: (id: string) => void;
 }
 
-export function EventDashboardCard({ event, tournaments, onDelete, onOpen }: EventDashboardCardProps) {
+export function EventDashboardCard({ event, tournaments, onDelete, onDeleteTournament, onOpen }: EventDashboardCardProps) {
   return (
     <div className="surface-card border-border-main overflow-hidden mb-6">
       <div className="flex items-center justify-between mb-4">
@@ -36,14 +37,14 @@ export function EventDashboardCard({ event, tournaments, onDelete, onOpen }: Eve
 
       <div className="grid grid-cols-1 gap-3">
         {tournaments.map(t => (
-          <EventTournamentRow key={t.id} config={t} onOpen={onOpen} />
+          <EventTournamentRow key={t.id} config={t} onOpen={onOpen} onDelete={onDeleteTournament} />
         ))}
       </div>
     </div>
   );
 }
 
-function EventTournamentRow({ config, onOpen }: { config: TournamentConfig; onOpen: (id: string) => void }) {
+function EventTournamentRow({ config, onOpen, onDelete }: { config: TournamentConfig; onOpen: (id: string) => void; onDelete?: (id: string) => void }) {
   const { data, isLoaded } = useTournamentData(config.id);
 
   if (!isLoaded) return <div className="h-12 bg-white/5 animate-pulse rounded-lg"></div>;
@@ -71,7 +72,18 @@ function EventTournamentRow({ config, onOpen }: { config: TournamentConfig; onOp
               {formatLabels[config.format]}
             </span>
           </div>
-          <span className="text-[10px] font-black text-brand-cyan uppercase shrink-0 ml-2">{formatRemainingTime(stats.estimatedRemainingTime)}</span>
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            <span className="text-[10px] font-black text-brand-cyan uppercase">{formatRemainingTime(stats.estimatedRemainingTime)}</span>
+            {onDelete && (
+              <button
+                onClick={e => { e.stopPropagation(); onDelete(config.id); }}
+                title="Excluir torneio"
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-[11px] bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all"
+              >
+                🗑
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">

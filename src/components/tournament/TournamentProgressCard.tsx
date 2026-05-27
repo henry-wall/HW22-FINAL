@@ -6,9 +6,11 @@ import type { TournamentConfig } from "../../types/tournament";
 interface TournamentProgressCardProps {
   config: TournamentConfig;
   onOpen: (id: string) => void;
+  onDelete?: () => void;
+  onLink?: () => void;
 }
 
-export function TournamentProgressCard({ config, onOpen }: TournamentProgressCardProps) {
+export function TournamentProgressCard({ config, onOpen, onDelete, onLink }: TournamentProgressCardProps) {
   const { data, isLoaded } = useTournamentData(config.id);
   const [copied, setCopied] = useState(false);
 
@@ -103,6 +105,27 @@ export function TournamentProgressCard({ config, onOpen }: TournamentProgressCar
           >
             {copied ? "✓ Copiado!" : "📺 Modo TV"}
           </button>
+          {/* Action buttons row */}
+          <div className="flex gap-1">
+            {onLink && (
+              <button
+                onClick={e => { e.stopPropagation(); onLink(); }}
+                title="Vincular a um Evento"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all bg-brand-cyan/10 border-brand-cyan/20 text-brand-cyan hover:bg-brand-cyan/20"
+              >
+                🔗
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={e => { e.stopPropagation(); onDelete(); }}
+                title="Excluir torneio"
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20"
+              >
+                🗑
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
