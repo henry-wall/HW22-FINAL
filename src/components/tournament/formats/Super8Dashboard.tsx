@@ -474,29 +474,29 @@ export default function Super8Dashboard({ config, players }: Super8DashboardProp
                         
                         {m ? (
                           <div className="space-y-4">
-                            <div className="flex items-center gap-2 w-full mb-4 bg-black/20 p-2 rounded-lg border border-white/5">
-                              {/* Team A */}
-                              <div className="flex-1 text-right min-w-0">
-                                <div className="text-[14px] text-white truncate tracking-tight">
-                                  {getTeamNameNodes(m.teamA)}
+                            <div className="w-full mb-4 bg-black/20 p-2 rounded-lg border border-white/5 space-y-2">
+                              {/* Team names row */}
+                              <div className="flex items-center gap-1.5">
+                                <div className="flex-1 text-right min-w-0">
+                                  <div className="text-[12px] md:text-[14px] text-white tracking-tight leading-snug">
+                                    {getTeamNameNodes(m.teamA)}
+                                  </div>
+                                </div>
+                                <span className="text-[9px] text-white/30 font-black italic shrink-0">VS</span>
+                                <div className="flex-1 text-left min-w-0">
+                                  <div className="text-[12px] md:text-[14px] text-white tracking-tight leading-snug">
+                                    {getTeamNameNodes(m.teamB)}
+                                  </div>
                                 </div>
                               </div>
-
-                              {/* Placar */}
-                              <div className="shrink-0">
+                              {/* Score input row */}
+                              <div className="flex justify-center">
                                 <ScoreInput
                                   scoreA={String(data.matchResults[m.globalId]?.scoreA ?? "")}
                                   scoreB={String(data.matchResults[m.globalId]?.scoreB ?? "")}
                                   onChange={(newA, newB) => handleScoreChange(m.globalId, newA, newB)}
                                   isValid={isGame6ScoreValid(String(data.matchResults[m.globalId]?.scoreA ?? ""), String(data.matchResults[m.globalId]?.scoreB ?? ""))}
                                 />
-                              </div>
-
-                              {/* Team B */}
-                              <div className="flex-1 text-left min-w-0">
-                                <div className="text-[14px] text-white truncate tracking-tight">
-                                  {getTeamNameNodes(m.teamB)}
-                                </div>
                               </div>
                             </div>
                             

@@ -365,18 +365,29 @@ export default function DoublesDashboard({ config, couples }: DoublesDashboardPr
                       </div>
                       {m ? (
                         <div className="space-y-4">
-                          <div className="flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-white/5">
-                            <div className="flex-1 text-right text-[14px] font-black text-white tracking-tight truncate">
-                              {getTeamName(m.teamA)}
+                          <div className="w-full mb-4 bg-black/20 p-2 rounded-lg border border-white/5 space-y-2">
+                            {/* Team names row */}
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex-1 text-right min-w-0">
+                                <div className="text-[12px] md:text-[14px] font-black text-white tracking-tight leading-snug">
+                                  {getTeamName(m.teamA)}
+                                </div>
+                              </div>
+                              <span className="text-[9px] text-white/30 font-black italic shrink-0">VS</span>
+                              <div className="flex-1 text-left min-w-0">
+                                <div className="text-[12px] md:text-[14px] font-black text-white tracking-tight leading-snug">
+                                  {getTeamName(m.teamB)}
+                                </div>
+                              </div>
                             </div>
-                            <ScoreInput
-                              scoreA={String(data.matchResults?.[m.globalId]?.scoreA ?? "")}
-                              scoreB={String(data.matchResults?.[m.globalId]?.scoreB ?? "")}
-                              onChange={(newA, newB) => handleScoreChange(m.globalId, newA, newB)}
-                              isValid={isGame6ScoreValid(String(data.matchResults?.[m.globalId]?.scoreA ?? ""), String(data.matchResults?.[m.globalId]?.scoreB ?? ""))}
-                            />
-                            <div className="flex-1 text-left text-[14px] font-black text-white tracking-tight truncate">
-                              {getTeamName(m.teamB)}
+                            {/* Score input row */}
+                            <div className="flex justify-center">
+                              <ScoreInput
+                                scoreA={String(data.matchResults?.[m.globalId]?.scoreA ?? "")}
+                                scoreB={String(data.matchResults?.[m.globalId]?.scoreB ?? "")}
+                                onChange={(newA, newB) => handleScoreChange(m.globalId, newA, newB)}
+                                isValid={isGame6ScoreValid(String(data.matchResults?.[m.globalId]?.scoreA ?? ""), String(data.matchResults?.[m.globalId]?.scoreB ?? ""))}
+                              />
                             </div>
                           </div>
                           <div className="flex gap-2 px-1">
