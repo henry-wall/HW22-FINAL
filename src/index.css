@@ -31,12 +31,12 @@
   --bg-input: #12121f;
   --border-main: #2a2a3e;
   --text-primary: #ffffff;
-  --text-secondary: #9ca3af;
-  --text-muted: #4b5563;
+  --text-secondary: #BFC9D6;
+  --text-muted: #94A3B8;
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
   --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.5);
   --shadow-brand: 0 4px 20px rgba(255, 5, 149, 0.45);
-  --brand-cyan: #00FFFF;
+  --brand-cyan: #00E5FF;
   --brand-cyan-dark: #00cccc;
 }
 
