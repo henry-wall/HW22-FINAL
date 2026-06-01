@@ -147,21 +147,17 @@ export default function RefereeScoreboard({
       const isGame6 = durationType === "game6";
       const isSuperTie = durationType === "supertie";
 
-      // ── Game6 format: play exactly 6 games total, higher score wins ──
+      // ── Game6 format: play exactly 7 games total, higher score wins ──
       if (isGame6) {
         nx.games[player]++;
         nx.totalGames++;
         nx.serving = (1 - nx.serving) as 0 | 1;
 
-        if (nx.totalGames >= 6) {
+        if (nx.totalGames >= 7) {
           nx.over = true;
           nx.winner = nx.games[0] > nx.games[1] ? 0 : nx.games[1] > nx.games[0] ? 1 : null;
-          if (nx.games[0] === nx.games[1]) {
-            nx.over = false;
-            nx.winner = null;
-          }
         }
-        const remaining = Math.max(0, 6 - nx.totalGames);
+        const remaining = Math.max(0, 7 - nx.totalGames);
         if (nx.games[player] > nx.games[op] + remaining) {
           nx.over = true;
           nx.winner = player;
@@ -245,7 +241,7 @@ export default function RefereeScoreboard({
 
         const gW = nx.games[gameWon], gL = nx.games[1 - gameWon as 0 | 1];
 
-        if (settings.hasTieBreak && nx.games[0] === settings.tbTrigger && nx.games[1] === settings.tbTrigger) {
+        if (!isGame6 && settings.hasTieBreak && nx.games[0] === settings.tbTrigger && nx.games[1] === settings.tbTrigger) {
           nx.tb = true;
           nx.tbPts = [0, 0];
         } else if (gW >= settings.gamesPerSet && (gW - gL >= 2 || !settings.hasTieBreak)) {
@@ -311,7 +307,7 @@ export default function RefereeScoreboard({
     : adv === 1 ? `⭐ VANT. ${shortB}`
     : s.tb ? "⚡ TIEBREAK"
     : durationType === "supertie" ? "⚡ SUPER TIE"
-    : durationType === "game6" ? `🎾 ${s.totalGames}/6 GAMES`
+    : durationType === "game6" ? `🎾 ${s.totalGames}/7 GAMES`
     : "";
 
   const mm = String(Math.floor(secs / 60)).padStart(2, "0");

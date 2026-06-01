@@ -54,7 +54,7 @@ const durations: { id: DurationType; label: string; minutes: number; isNew?: boo
   { id: "set6", label: "Set 6 games", minutes: 25 },
   { id: "shortset", label: "Short Set", minutes: 18 },
   { id: "supertie", label: "Super Tie", minutes: 10 },
-  { id: "game6", label: "Até 6 Games", minutes: 15, isNew: true, description: "Soma dos games = 6. Saldo de games é o 1º critério de desempate." },
+  { id: "game6", label: "Até 7 Games", minutes: 17, isNew: true, description: "Soma dos games = 7. Saldo de games é o 1º critério de desempate." },
 ];
 
 export default function Step4Settings({

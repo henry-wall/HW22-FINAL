@@ -44,7 +44,7 @@ const durationLabels: Record<string, string> = {
   set6: "Set 6 games",
   shortset: "Short Set",
   supertie: "Super Tie",
-  game6: "Até 6 Games",
+  game6: "Até 7 Games",
 };
 
 // Placeholder — this will be expanded with actual scheduling logic
@@ -284,7 +284,7 @@ export default function TournamentDashboard({
                     <option value="set6">Set 6 games</option>
                     <option value="shortset">Short Set</option>
                     <option value="supertie">Super Tie</option>
-                    <option value="game6">Até 6 Games</option>
+                    <option value="game6">Até 7 Games</option>
                   </select>
                 </div>
 
