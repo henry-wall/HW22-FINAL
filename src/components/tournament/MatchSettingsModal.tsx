@@ -77,23 +77,12 @@ export default function MatchSettingsModal({ settings, onUpdate, onClose, teamAN
             </div>
           </section>
 
-          {/* Games per set */}
+          {/* Games per set - INFO ONLY (auto-derived from format) */}
           <section>
             <label className="text-[10px] font-black text-yellow-400 uppercase tracking-widest block mb-3">Games por set</label>
-            <div className="grid grid-cols-3 gap-3">
-              {[4, 6, 8].map((v) => (
-                <button
-                  key={v}
-                  onClick={() => update("gamesPerSet", v)}
-                  className={`py-3 rounded-xl font-bold text-sm border transition-all ${
-                    settings.gamesPerSet === v 
-                      ? "bg-yellow-400 border-yellow-400 text-black shadow-[0_0_15px_rgba(250,204,21,0.3)]" 
-                      : "bg-white/5 border-white/5 text-white/40 hover:border-white/10"
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
+            <div className="p-3 rounded-xl bg-yellow-400/10 border border-yellow-400/20">
+              <p className="text-sm font-bold text-yellow-400">{settings.gamesPerSet} games</p>
+              <p className="text-[9px] text-yellow-400/70 mt-1">Definido automaticamente pelo formato da partida.</p>
             </div>
           </section>
 

@@ -1,5 +1,5 @@
 import type { DurationType, MatchSettings, TournamentFormat, TournamentGroupFormat, PlayoffFormat } from "../../types/tournament";
-import { getTieBreakTrigger } from "../../utils/matchSettingsUtils";
+import { getTieBreakTrigger, getGamesPerSetFromDurationType } from "../../utils/matchSettingsUtils";
 
 interface Step4SettingsProps {
   format: TournamentFormat;
@@ -41,7 +41,8 @@ function calcPreview(numPlayers: number, numCourts: number, durationType: Durati
   }
 
   const totalMatches = rounds * matchesPerRound;
-  const minutesPerMatch = durationType === "set6" ? 25 : durationType === "shortset" ? 18 : durationType === "game6" ? 15 : 10;
+  // Updated times: set6→25min, shortset→18min, game6(7 games)→17min, supertie→10min
+  const minutesPerMatch = durationType === "set6" ? 25 : durationType === "shortset" ? 18 : durationType === "game6" ? 17 : 10;
   const totalMinutes = Math.ceil(totalMatches / courts) * minutesPerMatch;
   const hours = Math.floor(totalMinutes / 60);
   const mins = totalMinutes % 60;
@@ -54,7 +55,7 @@ const durations: { id: DurationType; label: string; minutes: number; isNew?: boo
   { id: "set6", label: "Set 6 games", minutes: 25 },
   { id: "shortset", label: "Short Set", minutes: 18 },
   { id: "supertie", label: "Super Tie", minutes: 10 },
-  { id: "game6", label: "Até 7 Games", minutes: 17, isNew: true, description: "Soma dos games = 7. Saldo de games é o 1º critério de desempate." },
+  { id: "game6", label: "Até 7 Games", minutes: 17, isNew: true, description: "Soma dos games = 7. Sem empates!" },
 ];
 
 export default function Step4Settings({
@@ -126,7 +127,16 @@ export default function Step4Settings({
           {durations.map(d => (
             <button
               key={d.id}
-              onClick={() => onChangeDuration(d.id)}
+              onClick={() => {
+                onChangeDuration(d.id);
+                // Auto-update matchSettings when format changes
+                const newSettings = { ...matchSettings };
+                newSettings.gamesPerSet = getGamesPerSetFromDurationType(d.id);
+                if (d.id === "supertie" || d.id === "game6") {
+                  newSettings.bestOf = 1;
+                }
+                onChangeMatchSettings(newSettings);
+              }}
               className={`p-3 rounded-xl text-left border-2 transition-all ${
                 durationType === d.id 
                   ? "border-brand-pink bg-brand-pink/5 text-brand-pink" 
@@ -139,17 +149,17 @@ export default function Step4Settings({
           ))}
         </div>
 
-        {/* Advanced Match Settings */}
-        <div className="p-4 rounded-2xl bg-surface border border-border-main space-y-5 animate-fade-in">
-          <div className="flex items-center gap-2 mb-1">
+        {/* ━━━━ PAINEL CONDICIONAL DE DETALHES ━━━━ */}
+        <div className="p-4 rounded-2xl bg-surface border border-border-main space-y-4 animate-fade-in">
+          <div className="flex items-center gap-2">
             <span className="text-xs">⚙️</span>
-            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Detalhes da Pontuação</span>
+            <span className="text-[10px] font-black text-muted uppercase tracking-widest">Detalhes</span>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Best of Sets */}
-            <div>
-              <label className="text-[10px] font-bold text-muted uppercase block mb-2">Melhor de</label>
+
+          {/* Mostrar "Número de Sets" apenas para set6 e shortset */}
+          {(durationType === "set6" || durationType === "shortset") && (
+            <div className="animate-fade-in space-y-2">
+              <label className="text-[10px] font-bold text-muted uppercase block">Número de Sets</label>
               <div className="flex gap-1.5">
                 {[1, 3, 5].map(v => (
                   <button
@@ -159,46 +169,52 @@ export default function Step4Settings({
                       ns.superTieLastSet = v > 1;
                       onChangeMatchSettings(ns);
                     }}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all ${matchSettings.bestOf === v ? 'bg-brand-pink text-white' : 'bg-bg-page text-muted border border-border-main'}`}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all ${
+                      matchSettings.bestOf === v 
+                        ? 'bg-brand-pink text-white' 
+                        : 'bg-bg-page text-muted border border-border-main'
+                    }`}
                   >
-                    {v} {v === 1 ? 'Set' : 'Sets'}
+                    {v}
                   </button>
                 ))}
               </div>
+              <p className="text-[9px] text-text-muted mt-1">Games por set: <strong>{getGamesPerSetFromDurationType(durationType)}</strong> (definido automaticamente)</p>
             </div>
+          )}
 
-            {/* Games per Set */}
-            <div>
-              <label className="text-[10px] font-bold text-muted uppercase block mb-2">Games por Set</label>
-              <div className="flex gap-1.5">
-                {[4, 6, 8].map(v => (
-                  <button
-                    key={v}
-                    onClick={() => {
-                      const ns = { ...matchSettings, gamesPerSet: v as any };
-                      ns.tbTrigger = getTieBreakTrigger(v);
-                      onChangeMatchSettings(ns);
-                    }}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all ${matchSettings.gamesPerSet === v ? 'bg-yellow-400 text-black' : 'bg-bg-page text-muted border border-border-main'}`}
-                  >
-                    {v} Games
-                  </button>
-                ))}
-              </div>
+          {/* Info para Super Tie e Até 7 Games */}
+          {(durationType === "supertie" || durationType === "game6") && (
+            <div className="p-3 rounded-lg bg-brand-cyan/10 border border-brand-cyan/20 animate-fade-in">
+              <p className="text-[9px] text-brand-cyan font-bold uppercase tracking-wider">ℹ️ Sem "sets" — é direto ao ponto!</p>
             </div>
+          )}
+
+          {/* Mostrar info de Games For All Formats */}
+          <div className="p-3 rounded-lg bg-yellow-400/10 border border-yellow-400/20">
+            <p className="text-[9px] text-yellow-400 font-bold uppercase">🎾 Games por set: <span className="text-yellow-300">{getGamesPerSetFromDurationType(durationType)}</span></p>
           </div>
 
+          {/* Toggle Options */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <button 
               onClick={() => onChangeMatchSettings({ ...matchSettings, isNoAd: !matchSettings.isNoAd })}
-              className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${matchSettings.isNoAd ? 'bg-brand-cyan/10 border-brand-cyan text-brand-cyan' : 'bg-bg-page border-border-main text-muted'}`}
+              className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                matchSettings.isNoAd 
+                  ? 'bg-brand-cyan/10 border-brand-cyan text-brand-cyan' 
+                  : 'bg-bg-page border-border-main text-muted'
+              }`}
             >
               <span className="text-[10px] font-black uppercase">Modo No-Ad</span>
               <span className="text-[10px]">{matchSettings.isNoAd ? 'ON' : 'OFF'}</span>
             </button>
             <button 
               onClick={() => onChangeMatchSettings({ ...matchSettings, hasTieBreak: !matchSettings.hasTieBreak })}
-              className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${matchSettings.hasTieBreak ? 'bg-brand-cyan/10 border-brand-cyan text-brand-cyan' : 'bg-bg-page border-border-main text-muted'}`}
+              className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                matchSettings.hasTieBreak 
+                  ? 'bg-brand-cyan/10 border-brand-cyan text-brand-cyan' 
+                  : 'bg-bg-page border-border-main text-muted'
+              }`}
             >
               <span className="text-[10px] font-black uppercase">Tie-break</span>
               <span className="text-[10px]">{matchSettings.hasTieBreak ? 'ON' : 'OFF'}</span>
@@ -208,7 +224,11 @@ export default function Step4Settings({
           {matchSettings.bestOf > 1 && (
             <button 
               onClick={() => onChangeMatchSettings({ ...matchSettings, superTieLastSet: !matchSettings.superTieLastSet })}
-              className={`w-full flex items-center justify-between p-2.5 rounded-xl border transition-all ${matchSettings.superTieLastSet ? 'bg-brand-pink/10 border-brand-pink text-brand-pink' : 'bg-bg-page border-border-main text-muted'}`}
+              className={`w-full flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                matchSettings.superTieLastSet 
+                  ? 'bg-brand-pink/10 border-brand-pink text-brand-pink' 
+                  : 'bg-bg-page border-border-main text-muted'
+              }`}
             >
               <span className="text-[10px] font-black uppercase">Super Tie no último set (10 pts)</span>
               <span className="text-[10px]">{matchSettings.superTieLastSet ? 'SIM' : 'NÃO'}</span>
