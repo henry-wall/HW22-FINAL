@@ -24,6 +24,7 @@ export default function PresentationMode({
 }: PresentationModeProps) {
   const { data } = useTournamentData(config.id);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [activePanel, setActivePanel] = useState<"none" | "live" | "next" | "ranking" | "results">("none");
 
   // Use players/couples from state if not provided (for standalone TV mode)
   const players = initialPlayers.length > 0 ? initialPlayers : (data?.players || []);
@@ -131,7 +132,7 @@ export default function PresentationMode({
       <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-4 p-4 overflow-hidden">
         
         {/* Q1: Live Courts */}
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
+        <div onClick={() => setActivePanel("live")} className="cursor-pointer bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden transition hover:border-cyan-400/40">
           <h2 className="text-xl font-black text-cyan-400 mb-5 flex items-center gap-3 uppercase tracking-[0.2em]">
             <span className="w-3 h-3 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#00FFFF]"></span>
             Em Andamento
@@ -279,7 +280,7 @@ export default function PresentationMode({
         </div>
 
         {/* Q2: Next Games */}
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
+        <div onClick={() => setActivePanel("next")} className="cursor-pointer bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden transition hover:border-pink-400/40">
           <h2 className="text-xl font-black text-pink-500 mb-5 uppercase tracking-[0.2em] border-b border-pink-500/20 pb-2">Próximos Jogos</h2>
           <div className="grid grid-cols-1 gap-3 overflow-y-auto hide-scrollbar pr-2">
             {queue.map((m, idx) => (
@@ -306,7 +307,7 @@ export default function PresentationMode({
         </div>
 
         {/* Q3: Ranking */}
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
+        <div onClick={() => setActivePanel("ranking")} className="cursor-pointer bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden transition hover:border-yellow-400/40">
           <h2 className="text-xl font-black text-yellow-500 mb-5 uppercase tracking-[0.2em] border-b border-yellow-500/20 pb-2">Ranking ao Vivo</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 overflow-y-auto hide-scrollbar pr-2">
             {topStandings.map((st, idx) => (
@@ -339,7 +340,7 @@ export default function PresentationMode({
         </div>
 
         {/* Q4: Recent Results */}
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden">
+        <div onClick={() => setActivePanel("results")} className="cursor-pointer bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden transition hover:border-pink-400/40">
           <h2 className="text-xl font-black text-brand-pink mb-5 uppercase tracking-[0.2em] border-b border-brand-pink/20 pb-2">Últimos Resultados</h2>
           <div className="grid grid-cols-1 gap-2.5 overflow-y-auto hide-scrollbar pr-2">
             {finishedMatches.length > 0 ? (
@@ -375,6 +376,128 @@ export default function PresentationMode({
         </div>
 
       </div>
+
+      {activePanel !== "none" && (
+        <div className="absolute inset-0 z-40 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="w-full max-w-6xl bg-[#0b1220] border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <div>
+                <div className="text-xs uppercase tracking-[0.35em] text-white/50">Janela de detalhe</div>
+                <div className="text-3xl font-black text-white uppercase mt-2">
+                  {activePanel === "live" && "Em Andamento"}
+                  {activePanel === "next" && "Próximos Jogos"}
+                  {activePanel === "ranking" && "Ranking ao Vivo"}
+                  {activePanel === "results" && "Últimos Resultados"}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePanel("none")}
+                className="text-sm font-bold uppercase tracking-[0.25em] text-white/80 hover:text-white"
+              >
+                Fechar
+              </button>
+            </div>
+            <div className="max-h-[75vh] overflow-y-auto p-6 space-y-4">
+              {activePanel === "live" && (
+                <div className="space-y-4">
+                  {Array.from({ length: config.numCourts }, (_, i) => i + 1).map((c) => {
+                    const m = data.inProgressMatches?.[c];
+                    return (
+                      <div key={c} className="rounded-3xl border border-white/10 bg-black/60 p-5">
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-lg font-black uppercase tracking-[0.2em] text-cyan-300">Quadra {c}</span>
+                          {m ? <span className="text-xs uppercase tracking-[0.3em] bg-cyan-400/10 text-cyan-300 px-3 py-1 rounded-full">AO VIVO</span> : <span className="text-xs uppercase tracking-[0.3em] text-white/40">Livre</span>}
+                        </div>
+                        {m ? (
+                          <div className="space-y-3">
+                            <div className="text-base font-bold text-white">{getTeamName(m.teamA)}</div>
+                            <div className="text-base font-bold text-white">{getTeamName(m.teamB)}</div>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-white/50">Nenhuma partida em andamento nesta quadra.</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {activePanel === "next" && (
+                <div className="space-y-3">
+                  {queue.length > 0 ? queue.map((m, idx) => (
+                    <div key={idx} className="rounded-3xl border border-white/10 bg-black/60 p-5">
+                      <div className="text-sm text-white/50 uppercase tracking-[0.25em] mb-3">Partida {idx + 1}</div>
+                      <div className="flex flex-col gap-2">
+                        <div className="text-lg font-black text-white">{isMixed ? `${couples[m.teamA[0]]?.womanName} / ${couples[m.teamA[1]]?.manName}` : `${getPlayerName(m.teamA[0])} / ${getPlayerName(m.teamA[1])}`}</div>
+                        <div className="text-sm uppercase tracking-[0.35em] text-pink-400">vs</div>
+                        <div className="text-lg font-black text-white">{isMixed ? `${couples[m.teamB[0]]?.womanName} / ${couples[m.teamB[1]]?.manName}` : `${getPlayerName(m.teamB[0])} / ${getPlayerName(m.teamB[1])}`}</div>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="text-white/50">Nenhuma partida agendada.</div>
+                  )}
+                </div>
+              )}
+
+              {activePanel === "ranking" && (
+                <div className="grid gap-3">
+                  {topStandings.length > 0 ? topStandings.map((st, idx) => (
+                    <div key={idx} className={`rounded-3xl border p-5 ${idx === 0 ? 'border-yellow-400/40 bg-yellow-500/10' : 'border-white/10 bg-black/60'}`}>
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <div className="text-xs uppercase tracking-[0.35em] text-white/50">{idx + 1}º</div>
+                          <div className="text-xl font-black uppercase text-white mt-1">{st.name}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm uppercase text-white/50">VIT</div>
+                          <div className="text-xl font-black text-cyan-300">{st.pts || st.wins}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm uppercase text-white/50">SAL</div>
+                          <div className="text-xl font-black text-white">{st.diff > 0 ? `+${st.diff}` : st.diff}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="text-white/50">Ranking ainda não disponível.</div>
+                  )}
+                </div>
+              )}
+
+              {activePanel === "results" && (
+                <div className="space-y-3">
+                  {finishedMatches.length > 0 ? finishedMatches.slice(0, 8).map((m, idx) => {
+                    const scoreA = data.matchResults[m.globalId]?.scoreA;
+                    const scoreB = data.matchResults[m.globalId]?.scoreB;
+                    const { text: scoreText, winner } = formatMatchScore(scoreA, scoreB);
+                    return (
+                      <div key={idx} className="rounded-3xl border border-white/10 bg-black/60 p-5">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-full min-w-[5rem] flex-col items-center justify-center rounded-3xl border border-brand-pink/30 bg-brand-pink/10 px-4 py-3 text-center">
+                          <span className="text-[10px] uppercase tracking-[0.35em] text-white/60 mb-2">Resultado</span>
+                          <span className="text-3xl font-black text-brand-pink leading-none">{scoreText}</span>
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <div className={`text-base font-black uppercase tracking-tight ${winner === "A" ? "text-yellow-400" : "text-white"}`}>
+                            {isMixed ? `${couples[m.teamA[0]]?.womanName} / ${couples[m.teamA[1]]?.manName}` : `${getPlayerName(m.teamA[0])} / ${getPlayerName(m.teamA[1])}`}
+                          </div>
+                          <div className="text-sm uppercase tracking-[0.15em] text-white/60">
+                            {isMixed ? `${couples[m.teamB[0]]?.womanName} / ${couples[m.teamB[1]]?.manName}` : `${getPlayerName(m.teamB[0])} / ${getPlayerName(m.teamB[1])}`}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    );
+                  }) : (
+                    <div className="text-white/50">Nenhum resultado registrado ainda.</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Winners Overlay (if finished) */}
       {isFinished && topStandings.length > 0 && (

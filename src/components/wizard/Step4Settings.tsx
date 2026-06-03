@@ -52,8 +52,8 @@ function calcPreview(numPlayers: number, numCourts: number, durationType: Durati
 }
 
 const durations: { id: DurationType; label: string; minutes: number; isNew?: boolean; description?: string }[] = [
-  { id: "set6", label: "Set 6 games", minutes: 25 },
-  { id: "shortset", label: "Short Set", minutes: 18 },
+  { id: "set6", label: "Set (6 games)", minutes: 25 },
+  { id: "shortset", label: "Short Set (4 games)", minutes: 18 },
   { id: "supertie", label: "Super Tie", minutes: 10, description: "Tie-break até 10 pontos." },
   { id: "game6", label: "Até 7 games", minutes: 17, isNew: true, description: "São jogados 7 games no total." },
 ];
@@ -185,9 +185,10 @@ export default function Step4Settings({
 
           {/* Info para Super Tie e Até 7 Games */}
           {(durationType === "supertie" || durationType === "game6") && (
-            <div className="p-3 rounded-lg bg-brand-cyan/10 border border-brand-cyan/20 animate-fade-in space-y-2">
-              <p className="text-[9px] text-brand-cyan font-bold uppercase tracking-wider">ℹ️ Detalhes:</p>
-              <p className="text-[9px] text-brand-cyan/80 leading-relaxed">{durations.find(d => d.id === durationType)?.description}</p>
+            <div className="p-3 rounded-lg bg-brand-cyan/10 border border-brand-cyan/20 animate-fade-in">
+              <p className="text-[9px] text-brand-cyan font-bold uppercase tracking-wider">
+                ℹ️ <span className="font-bold text-brand-cyan">{durations.find(d => d.id === durationType)?.description}</span>
+              </p>
             </div>
           )}
 
