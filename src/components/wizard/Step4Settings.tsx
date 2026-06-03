@@ -1,5 +1,5 @@
 import type { DurationType, MatchSettings, TournamentFormat, TournamentGroupFormat, PlayoffFormat } from "../../types/tournament";
-import { getTieBreakTrigger, getGamesPerSetFromDurationType } from "../../utils/matchSettingsUtils";
+import { getGamesPerSetFromDurationType } from "../../utils/matchSettingsUtils";
 
 interface Step4SettingsProps {
   format: TournamentFormat;

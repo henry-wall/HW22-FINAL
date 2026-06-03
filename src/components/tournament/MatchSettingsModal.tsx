@@ -81,7 +81,9 @@ export default function MatchSettingsModal({ settings, onUpdate, onClose, teamAN
           <section>
             <label className="text-[10px] font-black text-yellow-400 uppercase tracking-widest block mb-3">Games por set</label>
             <div className="p-3 rounded-xl bg-yellow-400/10 border border-yellow-400/20">
-              <p className="text-sm font-bold text-yellow-400">{settings.gamesPerSet} games</p>
+              <p className="text-sm font-bold text-yellow-400">
+                {settings.gamesPerSet === 0 ? "Super Tie" : `${settings.gamesPerSet} games`}
+              </p>
               <p className="text-[9px] text-yellow-400/70 mt-1">Definido automaticamente pelo formato da partida.</p>
             </div>
           </section>
@@ -105,7 +107,7 @@ export default function MatchSettingsModal({ settings, onUpdate, onClose, teamAN
             <div>
               <div className="font-bold text-white text-sm">Tem Tie-break?</div>
               <div className="text-[10px] text-white/40 uppercase font-bold tracking-tighter">
-                {settings.gamesPerSet === 4 ? "No 3x3" : settings.gamesPerSet === 6 ? "No 6x6" : "No 8x8"}
+                {settings.gamesPerSet === 4 ? "No 3x3" : settings.gamesPerSet === 6 ? "No 6x6" : settings.gamesPerSet === 7 ? "No 7x7" : "Super Tie"}
               </div>
             </div>
             <button 

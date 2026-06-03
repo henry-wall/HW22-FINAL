@@ -342,8 +342,8 @@ export default function TournamentDashboard({
                             onUpdateTournament({ 
                               matchSettings: { 
                                 ...ms, 
-                                gamesPerSet: v as any,
-                                tbTrigger: getTieBreakTrigger(v)
+                                gamesPerSet: v as 4 | 6 | 8,
+                                tbTrigger: getTieBreakTrigger(v as 4 | 6 | 8)
                               } 
                             });
                           }}
@@ -387,7 +387,7 @@ export default function TournamentDashboard({
             {[
               { label: "Formato das Partidas", value: durationLabels[config.durationType] },
               { label: "Melhor de", value: `${config.matchSettings?.bestOf || 1} set(s)` },
-              { label: "Games / Set", value: `${config.matchSettings?.gamesPerSet || 6} games` },
+              { label: "Games / Set", value: config.durationType === "supertie" ? "Super Tie" : `${config.matchSettings?.gamesPerSet || 6} games` },
               { label: "Regras", value: `${config.matchSettings?.isNoAd ? "No-Ad" : "Vantagem"} · ${config.matchSettings?.hasTieBreak ? "TB" : "Sem TB"}` },
             ].map(item => (
               <div key={item.label} className="surface-card">

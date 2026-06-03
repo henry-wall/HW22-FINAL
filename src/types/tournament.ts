@@ -13,7 +13,7 @@ export type ViewMode = "planning" | "operation" | "presentation";
 
 export interface MatchSettings {
   bestOf: 1 | 3 | 5;
-  gamesPerSet: 4 | 6 | 8;
+  gamesPerSet: 0 | 4 | 6 | 7 | 8;
   isNoAd: boolean;
   hasTieBreak: boolean;
   tbTrigger: number;      // games needed to trigger tiebreak (ex: 6 ou 7)

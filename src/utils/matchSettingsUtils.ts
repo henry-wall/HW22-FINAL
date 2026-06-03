@@ -28,17 +28,10 @@ export function getDefaultMatchSettings(durationType: DurationType): MatchSettin
   };
 }
 
-export function getTieBreakTrigger(gamesPerSet: number): number {
-  if (gamesPerSet === 4) return 3;
-  if (gamesPerSet === 6) return 6;
-  if (gamesPerSet === 8) return 8;
-  return 6;
-}
-
 /**
  * Derive gamesPerSet from durationType (auto-calculated, not user input)
  */
-export function getGamesPerSetFromDurationType(durationType: DurationType): number {
+export function getGamesPerSetFromDurationType(durationType: DurationType): 0 | 4 | 6 | 7 | 8 {
   switch (durationType) {
     case "shortset":
       return 4;
@@ -50,4 +43,11 @@ export function getGamesPerSetFromDurationType(durationType: DurationType): numb
     default:
       return 6;
   }
+}
+
+export function getTieBreakTrigger(gamesPerSet: 0 | 4 | 6 | 7 | 8): number {
+  if (gamesPerSet === 4) return 3;
+  if (gamesPerSet === 6) return 6;
+  if (gamesPerSet === 8) return 8;
+  return 0; // no tie-break for game6 (7 games) and supertie
 }
