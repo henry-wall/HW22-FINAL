@@ -38,6 +38,16 @@ export default function PresentationMode({
   
   const abbreviateName = (name?: string) => {
     if (!name) return "";
+    // Handle couple names (e.g. "Maria Silva & João Souza")
+    if (name.includes(" & ") || name.includes(" / ")) {
+      const parts = name.split(/ [&\/] /);
+      return parts.map(part => {
+        const words = part.trim().split(/\s+/);
+        if (words.length <= 1) return part.toUpperCase();
+        return `${words[0].charAt(0).toUpperCase()}. ${words[words.length - 1].toUpperCase()}`;
+      }).join(" / ");
+    }
+    // Handle single names
     const parts = name.trim().split(/\s+/);
     if (parts.length <= 1) return name.toUpperCase();
     return `${parts[0].charAt(0).toUpperCase()}. ${parts[parts.length - 1].toUpperCase()}`;
