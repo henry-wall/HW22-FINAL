@@ -48,3 +48,23 @@ function getFormatLabel(format: string): string {
   };
   return labels[format] || format;
 }
+
+/**
+ * Generate a shareable URL for a match. If `tournamentId` is provided,
+ * the link will be `/?t={tournamentId}&match={matchId}` which is recommended.
+ */
+export function generateMatchShareUrl(matchId: string, tournamentId?: string) {
+  const base = window.location.origin || "https://wallbt.netlify.app";
+  if (tournamentId) return `${base}/?t=${encodeURIComponent(tournamentId)}&match=${encodeURIComponent(matchId)}`;
+  return `${base}/?match=${encodeURIComponent(matchId)}`;
+}
+
+/**
+ * Open WhatsApp share with the generated match link and optional message.
+ */
+export function shareMatchToWhatsApp(matchId: string, tournamentId?: string, label?: string) {
+  const url = generateMatchShareUrl(matchId, tournamentId);
+  const text = label ? `${label}\n${url}` : url;
+  const message = encodeURIComponent(text);
+  window.open(`https://wa.me/?text=${message}`, "_blank");
+}

@@ -7,18 +7,37 @@ import { formatMatchScore } from "../../../utils/scoreFormatting";
 import { sumScore, getMatchWinner } from "../../../utils/rankingUtils";
 import { ScoreInput } from "../ScoreInput";
 import RefereeScoreboard from "../RefereeScoreboard";
+import ShareMatchButton from "../../shared/ShareMatchButton";
 
 interface DoublesDashboardProps {
   config: TournamentConfig;
   couples: { manName: string; womanName: string }[];
+  openMatchGlobalId?: string;
 }
 
-export default function DoublesDashboard({ config, couples }: DoublesDashboardProps) {
+export default function DoublesDashboard({ config, couples, openMatchGlobalId }: DoublesDashboardProps) {
   const { data, updateData, updateField, isLoaded } = useTournamentData(config.id);
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "operation" | "series" | "standings">("overview");
   const playoffFormat = config.playoffFormat ?? "none";
   const [refereeMatch, setRefereeMatch] = useState<{ match: EngineMatch; court: number } | null>(null);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!openMatchGlobalId || !isLoaded) return;
+    const inProg = data.inProgressMatches || {};
+    for (const [courtStr, m] of Object.entries(inProg)) {
+      if ((m as any).globalId === openMatchGlobalId) {
+        setRefereeMatch({ match: m as EngineMatch, court: Number(courtStr) });
+        setActiveTab("operation");
+        return;
+      }
+    }
+    const found = (data.matches || []).find((mm: any) => mm.globalId === openMatchGlobalId);
+    if (found) {
+      setRefereeMatch({ match: found as EngineMatch, court: (found.court || 1) });
+      setActiveTab("operation");
+    }
+  }, [openMatchGlobalId, data, isLoaded]);
 
   const isGame6ScoreValid = (scoreA: string | number, scoreB: string | number) => {
     if (config.durationType !== "game6") return true;
@@ -228,7 +247,9 @@ export default function DoublesDashboard({ config, couples }: DoublesDashboardPr
         teamBName={teamBName}
         courtNumber={rm.court}
         durationType={config.durationType}
-        initialSettings={config.matchSettings}
+          initialSettings={config.matchSettings}
+          matchGlobalId={rm.match.globalId}
+          tournamentId={config.id}
         onSubmitScore={(scoreA, scoreB) => {
           const resultsCopy = { ...data.matchResults };
           resultsCopy[rm.match.globalId] = { scoreA, scoreB };
@@ -359,6 +380,7 @@ export default function DoublesDashboard({ config, couples }: DoublesDashboardPr
                         Quadra {c}
                         {m && (
                           <div className="flex items-center gap-2">
+                            <ShareMatchButton matchGlobalId={m.globalId} tournamentId={config.id} variant="compact" />
                             <span className="text-[10px] bg-brand-cyan/20 text-brand-cyan border border-brand-cyan/30 px-2 py-0.5 rounded font-black tracking-widest animate-pulse">AO VIVO</span>
                           </div>
                         )}

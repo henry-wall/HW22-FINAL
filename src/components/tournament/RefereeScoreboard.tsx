@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { DurationType, MatchSettings } from "../../types/tournament";
 import MatchSettingsModal from "./MatchSettingsModal";
 import { getDefaultMatchSettings } from "../../utils/matchSettingsUtils";
-
+import ShareMatchButton from "../shared/ShareMatchButton";
 // ── Audio helpers ─────────────────────────────────────────────────
 function playBeep(freq = 880, dur = 200, vol = 0.3) {
   try {
@@ -45,6 +45,8 @@ interface RefereeScoreboardProps {
   onSubmitScore: (scoreA: number, scoreB: number) => void;
   onLiveScoreUpdate?: (state: ScoreState | null) => void;
   onExit: () => void;
+  matchGlobalId?: string;
+  tournamentId?: string;
 }
 
 const INITIAL_STATE: ScoreState = {
@@ -69,6 +71,8 @@ export default function RefereeScoreboard({
   onSubmitScore,
   onLiveScoreUpdate,
   onExit,
+  matchGlobalId,
+  tournamentId,
 }: RefereeScoreboardProps) {
   const [settings, setSettings] = useState<MatchSettings>({ 
     ...getDefaultMatchSettings(durationType),
@@ -409,6 +413,9 @@ export default function RefereeScoreboard({
           <button onClick={() => setShowSettings(true)} className="text-white/30 hover:text-white transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
           </button>
+          {matchGlobalId && tournamentId && (
+            <ShareMatchButton matchGlobalId={matchGlobalId} tournamentId={tournamentId} variant="full" />
+          )}
         </div>
         <div className="flex items-center gap-3">
           <span className={`text-xl font-black tabular-nums tracking-wide ${timerRunning ? "text-green-400" : "text-white/25"}`}>

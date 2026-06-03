@@ -25,11 +25,11 @@ function AppContent() {
   const [view, setView] = useState<AppView>("home");
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
 
-  // Detect TV mode from URL
-  const tvTournamentId = useMemo(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("tv");
-  }, []);
+  // Detect TV / shared match mode from URL
+  const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
+  const tvTournamentId = urlParams.get("tv");
+  const linkTournamentId = urlParams.get("t");
+  const linkMatchId = urlParams.get("match");
 
   const tournaments = data?.tournaments || [];
   const playersMap = data?.players || {};
@@ -122,6 +122,31 @@ function AppContent() {
         <p className="text-muted text-sm">Sincronizando com a nuvem</p>
       </div>
     );
+  }
+
+  // If link contains tournament + match, open the tournament dashboard and auto-open the match
+  if (linkTournamentId) {
+    const linkConfig = tournaments.find(t => t.id === linkTournamentId);
+    if (linkConfig) {
+      const siblingTournaments = linkConfig.eventId
+        ? data.tournaments.filter(t => t.eventId === linkConfig.eventId && t.id !== linkConfig.id)
+        : [];
+      const activeEvent = linkConfig.eventId ? (data.events || []).find(e => e.id === linkConfig.eventId) : undefined;
+
+      return (
+        <TournamentDashboard
+          config={linkConfig}
+          initialPlayers={playersMap[linkConfig.id] || []}
+          onUpdatePlayers={(newPlayers) => updateField("players", { ...(data.players || {}), [linkConfig.id]: newPlayers })}
+          onUpdateTournament={(partial) => updateField("tournaments", tournaments.map(t => t.id === linkConfig.id ? { ...t, ...partial } : t))}
+          onBack={() => setView("home")}
+          siblingTournaments={siblingTournaments}
+          activeEvent={activeEvent}
+          onSwitchTournament={(id) => { setActiveTournamentId(id); setView("tournament"); }}
+          openMatchGlobalId={linkMatchId || undefined}
+        />
+      );
+    }
   }
 
   // If in TV mode, render only the presentation screen

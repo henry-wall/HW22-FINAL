@@ -8,10 +8,12 @@ import { formatMatchScore } from "../../../utils/scoreFormatting";
 import { sumScore, getMatchWinner } from "../../../utils/rankingUtils";
 import { ScoreInput } from "../ScoreInput";
 import RefereeScoreboard from "../RefereeScoreboard";
+import ShareMatchButton from "../../shared/ShareMatchButton";
 
 interface KingQueenDashboardProps {
   config: TournamentConfig;
   players: string[];
+  openMatchGlobalId?: string;
 }
 
 const GROUP_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -25,7 +27,7 @@ const SERIES_COLORS = [
   { bg: "#ECFDF5", border: "#10B981", text: "#064E3B" }, // Cristal
 ];
 
-export default function KingQueenDashboard({ config, players }: KingQueenDashboardProps) {
+export default function KingQueenDashboard({ config, players, openMatchGlobalId }: KingQueenDashboardProps) {
   const { data, updateData, updateField, isLoaded } = useTournamentData(config.id);
   const [activeTab, setActiveTab] = useState<"overview" | "groups" | "operation" | "series" | "standings">("overview");
   const [transferModal, setTransferModal] = useState<{ isOpen: boolean; fromCourt: number | null }>({
@@ -34,6 +36,28 @@ export default function KingQueenDashboard({ config, players }: KingQueenDashboa
   });
   const [refereeMatch, setRefereeMatch] = useState<{ match: EngineMatch; court: number } | null>(null);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!openMatchGlobalId || !isLoaded) return;
+    const inProg = data.inProgressMatches || {};
+    for (const [courtStr, m] of Object.entries(inProg)) {
+      if ((m as any).globalId === openMatchGlobalId) {
+        setRefereeMatch({ match: m as EngineMatch, court: Number(courtStr) });
+        setActiveTab("operation");
+        return;
+      }
+    }
+    // Search in groupRounds and seriesRounds
+    let found: EngineMatch | undefined;
+    data.groupRounds?.forEach((group: any) => group.forEach((rnd: any) => rnd.matches.forEach((m: any) => { if (m.globalId === openMatchGlobalId) found = m; })));
+    if (!found && data.seriesRounds) {
+      data.seriesRounds.forEach((series: any) => series.forEach((rnd: any) => rnd.matches.forEach((m: any) => { if (m.globalId === openMatchGlobalId) found = m; })));
+    }
+    if (found) {
+      setRefereeMatch({ match: found as EngineMatch, court: (found.court || 1) });
+      setActiveTab("operation");
+    }
+  }, [openMatchGlobalId, data, isLoaded]);
 
   // Initial generation
   useEffect(() => {
@@ -372,6 +396,8 @@ export default function KingQueenDashboard({ config, players }: KingQueenDashboa
         courtNumber={rm.court}
         durationType={config.durationType}
         initialSettings={config.matchSettings}
+        matchGlobalId={rm.match.globalId}
+        tournamentId={config.id}
         onSubmitScore={(scoreA, scoreB) => {
           const resultsCopy = { ...data.matchResults };
           resultsCopy[rm.match.globalId] = { scoreA: String(scoreA), scoreB: String(scoreB) };
@@ -726,6 +752,7 @@ export default function KingQueenDashboard({ config, players }: KingQueenDashboa
                                   🔄 Trocar
                                 </button>
                               )}
+                              <ShareMatchButton matchGlobalId={m.globalId} tournamentId={config.id} variant="compact" />
                               <span className="text-[10px] font-black tracking-widest text-brand-cyan bg-brand-cyan/20 border border-brand-cyan/30 px-2 py-0.5 rounded animate-pulse">AO VIVO</span>
                             </div>
                           )}

@@ -7,14 +7,15 @@ import { formatMatchScore } from "../../../utils/scoreFormatting";
 import { sumScore, getMatchWinner } from "../../../utils/rankingUtils";
 import { ScoreInput } from "../ScoreInput";
 import RefereeScoreboard from "../RefereeScoreboard";
-// import { SyncStatusBadge } from "../../shared/SyncStatusBadge";
+import ShareMatchButton from "../../shared/ShareMatchButton";
 
 interface Super8DashboardProps {
   config: TournamentConfig;
   players: string[];
+  openMatchGlobalId?: string;
 }
 
-export default function Super8Dashboard({ config, players }: Super8DashboardProps) {
+export default function Super8Dashboard({ config, players, openMatchGlobalId }: Super8DashboardProps) {
   const { data, updateData, updateField, isLoaded } = useTournamentData(config.id);
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "operation" | "standings">("overview");
   const [transferModal, setTransferModal] = useState<{ isOpen: boolean; fromCourt: number | null }>({
@@ -307,6 +308,24 @@ export default function Super8Dashboard({ config, players }: Super8DashboardProp
   if (!isLoaded) return <div className="p-8 text-center text-muted">Carregando dados do torneio...</div>;
 
   // Referee overlay
+  useEffect(() => {
+    if (!openMatchGlobalId || !isLoaded) return;
+    // Check in-progress matches first
+    const inProg = data.inProgressMatches || {};
+    for (const [courtStr, m] of Object.entries(inProg)) {
+      if ((m as any).globalId === openMatchGlobalId) {
+        setRefereeMatch({ match: m as EngineMatch, court: Number(courtStr) });
+        setActiveTab("operation");
+        return;
+      }
+    }
+    // Then check schedule
+    const found = (data.matches || []).find((mm: any) => mm.globalId === openMatchGlobalId);
+    if (found) {
+      setRefereeMatch({ match: found as EngineMatch, court: (found.court || 1) });
+      setActiveTab("operation");
+    }
+  }, [openMatchGlobalId, data, isLoaded]);
   if (refereeMatch) {
     const rm = refereeMatch;
     const teamAName = `${players[rm.match.teamA[0]]} & ${players[rm.match.teamA[1]]}`;
@@ -317,7 +336,9 @@ export default function Super8Dashboard({ config, players }: Super8DashboardProp
         teamBName={teamBName}
         courtNumber={rm.court}
         durationType={config.durationType}
-        initialSettings={config.matchSettings}
+          initialSettings={config.matchSettings}
+          matchGlobalId={rm.match.globalId}
+          tournamentId={config.id}
         onSubmitScore={(scoreA, scoreB) => {
           const resultsCopy = { ...data.matchResults };
           resultsCopy[rm.match.globalId] = { scoreA: String(scoreA), scoreB: String(scoreB) };
@@ -467,6 +488,7 @@ export default function Super8Dashboard({ config, players }: Super8DashboardProp
                                   🔄 Trocar
                                 </button>
                               )}
+                              <ShareMatchButton matchGlobalId={m.globalId} tournamentId={config.id} variant="compact" />
                               <span className="text-[10px] font-black tracking-widest text-brand-cyan bg-brand-cyan/20 border border-brand-cyan/30 px-2 py-0.5 rounded animate-pulse">AO VIVO</span>
                             </div>
                           )}

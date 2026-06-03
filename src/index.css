@@ -196,6 +196,15 @@
 .animate-fade-in { animation: fadeIn 0.3s ease-out; }
 .animate-slide-up { animation: slideUp 0.3s ease-out; }
 
+/* Toast notification animation */
+@keyframes toastIn {
+  0%   { opacity: 0; transform: translate(-50%, 20px); }
+  15%  { opacity: 1; transform: translate(-50%, 0); }
+  85%  { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -10px); }
+}
+.animate-toast-in { animation: toastIn 2.5s ease-out forwards; }
+
 /* Custom Scrollbar Utility */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;

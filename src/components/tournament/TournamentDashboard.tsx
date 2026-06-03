@@ -24,6 +24,7 @@ interface TournamentDashboardProps {
   siblingTournaments?: TournamentConfig[];
   activeEvent?: TournamentEvent;
   onSwitchTournament?: (id: string) => void;
+  openMatchGlobalId?: string;
 }
 
 const formatLabels: Record<string, string> = {
@@ -57,6 +58,7 @@ export default function TournamentDashboard({
   siblingTournaments = [],
   activeEvent,
   onSwitchTournament,
+  openMatchGlobalId,
 }: TournamentDashboardProps) {
   const [showTVMode, setShowTVMode] = useState(false);
   const [isEditingPlayers, setIsEditingPlayers] = useState(false);
@@ -562,13 +564,13 @@ export default function TournamentDashboard({
       {/* Formats Routing */}
       <div className="flex-1 overflow-hidden">
         {config.format === "super8" ? (
-          <Super8Dashboard config={config} players={players} />
+          <Super8Dashboard config={config} players={players} openMatchGlobalId={openMatchGlobalId} />
         ) : config.format === "mixeddoubles" ? (
-          <MixedDoublesDashboard config={config} couples={couples as any} />
+          <MixedDoublesDashboard config={config} couples={couples as any} openMatchGlobalId={openMatchGlobalId} />
         ) : config.format === "kingqueen" ? (
-          <KingQueenDashboard config={config} players={players} />
+          <KingQueenDashboard config={config} players={players} openMatchGlobalId={openMatchGlobalId} />
         ) : (config.format === "fixeddoubles" || config.format === "drawdoubles") ? (
-          <DoublesDashboard config={config} couples={couples as any} />
+          <DoublesDashboard config={config} couples={couples as any} openMatchGlobalId={openMatchGlobalId} />
         ) : (
           <div className="rounded-2xl p-6 text-center mt-4 border border-dashed border-brand-pink/30 bg-brand-pink/5 mx-5">
             <div className="text-3xl mb-3">⚙️</div>
