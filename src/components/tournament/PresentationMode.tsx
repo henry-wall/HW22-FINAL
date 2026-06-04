@@ -375,9 +375,9 @@ export default function PresentationMode({
                 const { text: scoreText, winner } = formatMatchScore(scoreA, scoreB);
 
                 return (
-                  <div key={idx} className="flex items-center justify-between bg-black/60 p-4 rounded-2xl border border-white/10">
+                  <div key={idx} className="flex items-center justify-between bg-black/60 p-5 rounded-3xl border border-white/10">
                     <span className={`text-base font-black truncate flex-1 uppercase tracking-tight ${winner === "A" ? "text-yellow-400" : "text-white"}`}>
-                      {winner === "A" && "👑 "}
+                      
                       {getFullTeamName(m.teamA)}
                     </span>
                     <div className="flex items-center gap-4 mx-6">
@@ -387,7 +387,7 @@ export default function PresentationMode({
                     </div>
                     <span className={`text-base font-black truncate flex-1 text-right uppercase tracking-tight ${winner === "B" ? "text-yellow-400" : "text-white"}`}>
                       {getFullTeamName(m.teamB)}
-                      {winner === "B" && " 👑"}
+                      
                     </span>
                   </div>
                 );
@@ -539,21 +539,18 @@ export default function PresentationMode({
                       const scoreB = data.matchResults[m.globalId]?.scoreB;
                       const { text: scoreText, winner } = formatMatchScore(scoreA, scoreB);
                       return (
-                        <div key={idx} className="rounded-3xl border border-white/10 bg-black/60 p-5">
-                          <div className="flex items-center gap-4">
-                            <div className="flex h-full min-w-[5rem] flex-col items-center justify-center rounded-3xl border border-brand-pink/30 bg-brand-pink/10 px-4 py-3 text-center">
-                              <span className="text-[10px] uppercase tracking-[0.35em] text-white/60 mb-2">Resultado</span>
-                              <span className="text-3xl font-black text-brand-pink leading-none">{scoreText}</span>
-                            </div>
-                            <div className="flex-1 space-y-1">
-                              <div className={`text-base font-black uppercase tracking-tight ${winner === "A" ? "text-yellow-400" : "text-white"}`}>
-                                {getFullTeamName(m.teamA)}
-                              </div>
-                              <div className="text-sm uppercase tracking-[0.15em] text-white/60">
-                                {getFullTeamName(m.teamB)}
-                              </div>
-                            </div>
+                        <div key={idx} className="flex items-center justify-between bg-black/60 p-5 rounded-3xl border border-white/10">
+                          <span className={`text-base font-black truncate flex-1 uppercase tracking-tight ${winner === "A" ? "text-yellow-400" : "text-white"}`}>
+                            {getFullTeamName(m.teamA)}
+                          </span>
+                          <div className="flex items-center gap-4 mx-6">
+                            <span className="bg-brand-pink text-white px-4 py-1.5 rounded-xl font-black text-2xl tabular-nums shadow-[0_0_15px_rgba(255,5,149,0.4)] border border-brand-pink/50 whitespace-nowrap">
+                              {scoreText}
+                            </span>
                           </div>
+                          <span className={`text-base font-black truncate flex-1 text-right uppercase tracking-tight ${winner === "B" ? "text-yellow-400" : "text-white"}`}>
+                            {getFullTeamName(m.teamB)}
+                          </span>
                         </div>
                       );
                     }) : (
