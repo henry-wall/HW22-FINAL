@@ -4,8 +4,24 @@ import { useTournamentData } from "../../hooks/useTournamentData";
 import { calculateMixedDoublesRanking, calculateSuper8Ranking, calculateKingQueenRanking } from "../../utils/rankingUtils";
 import { formatMatchScore } from "../../utils/scoreFormatting";
 import logoUrl from "../../assets/WallBT_Full.png";
+import html2canvas from "html2canvas";
 
 const PTS_LABELS = ["0", "15", "30", "40"];
+
+// Save element as PNG image
+const saveElementAsImage = async (id: string, filename: string) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  try {
+    const canvas = await html2canvas(el, { backgroundColor: "#0a0a0f", scale: 2 });
+    const link = document.createElement("a");
+    link.download = filename;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  } catch {
+    alert("Erro ao salvar imagem. Tente novamente.");
+  }
+};
 
 interface PresentationModeProps {
   config: TournamentConfig;
@@ -286,8 +302,32 @@ export default function PresentationMode({
 
         {/* Q3: Ranking */}
         <div onClick={() => setActivePanel("ranking")} className="cursor-pointer bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden transition hover:border-yellow-400/40">
-          <h2 className="text-xl font-black text-yellow-500 mb-5 uppercase tracking-[0.2em] border-b border-yellow-500/20 pb-2">Ranking ao Vivo</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 overflow-y-auto hide-scrollbar pr-2">
+          <div className="flex items-center justify-between mb-5 border-b border-yellow-500/20 pb-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-black text-yellow-500 uppercase tracking-[0.2em]">Ranking ao Vivo</h2>
+              <div className="relative group">
+                <button className="text-gray-500 hover:text-yellow-400 transition text-sm">ℹ️</button>
+                <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50">
+                  <div className="bg-gray-900 border border-yellow-500/40 rounded-xl p-3 text-xs text-gray-300 shadow-2xl whitespace-nowrap">
+                    <div className="font-black text-yellow-400 mb-2">Critérios de Desempate:</div>
+                    <div className="space-y-1">
+                      <div>1. Vitórias</div>
+                      <div>2. Saldo de Games</div>
+                      <div>3. Games Pró</div>
+                      <div>4. Confronto Direto</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); saveElementAsImage("ranking-panel", "ranking-ao-vivo.png"); }}
+              className="px-3 py-1.5 bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-400 text-xs font-bold rounded-lg transition"
+            >
+              📷 Baixar
+            </button>
+          </div>
+          <div id="ranking-panel" className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 overflow-y-auto hide-scrollbar pr-2">
             {topStandings.map((st, idx) => (
               <div key={idx} className={`flex justify-between items-center p-4 rounded-2xl border-2 transition-all ${
                 idx === 0 ? "bg-yellow-500/20 border-yellow-500/40 scale-[1.02]" : "bg-black/60 border-white/5"
@@ -302,13 +342,17 @@ export default function PresentationMode({
                     {st.name}
                   </span>
                 </div>
-                <div className="flex gap-4 text-sm font-black tabular-nums shrink-0">
+                <div className="flex gap-3 text-sm font-black tabular-nums shrink-0">
                   <div className="flex flex-col items-end">
                     <span className="text-[10px] text-gray-500 uppercase">VIT</span>
                     <span className="text-cyan-400 text-lg">{st.pts || st.wins}</span>
                   </div>
                   <div className="flex flex-col items-end">
-                    <span className="text-[10px] text-gray-500 uppercase">SAL</span>
+                    <span className="text-[10px] text-gray-500 uppercase">GP</span>
+                    <span className="text-green-400 text-lg">{st.games}</span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[10px] text-gray-500 uppercase">SG</span>
                     <span className="text-white text-lg">{st.diff > 0 ? `+${st.diff}` : st.diff}</span>
                   </div>
                 </div>
@@ -319,8 +363,11 @@ export default function PresentationMode({
 
         {/* Q4: Recent Results */}
         <div onClick={() => setActivePanel("results")} className="cursor-pointer bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden transition hover:border-pink-400/40">
-          <h2 className="text-xl font-black text-brand-pink mb-5 uppercase tracking-[0.2em] border-b border-brand-pink/20 pb-2">Últimos Resultados</h2>
-          <div className="grid grid-cols-1 gap-2.5 overflow-y-auto hide-scrollbar pr-2">
+          <div className="flex justify-between items-center mb-5 border-b border-brand-pink/20 pb-2">
+            <h2 className="text-xl font-black text-brand-pink uppercase tracking-[0.2em]">Últimos Resultados</h2>
+            <button onClick={(e) => { e.stopPropagation(); saveElementAsImage("results-panel", "ultimos-resultados.png"); }} className="px-3 py-1.5 bg-pink-500/20 hover:bg-pink-500/40 text-brand-pink text-xs font-bold rounded-lg transition">📷 Baixar</button>
+          </div>
+          <div id="results-panel" className="grid grid-cols-1 gap-2.5 overflow-y-auto hide-scrollbar pr-2">
             {finishedMatches.length > 0 ? (
               finishedMatches.slice(0, 8).map((m, idx) => {
                 const scoreA = data.matchResults[m.globalId]?.scoreA;
@@ -418,57 +465,101 @@ export default function PresentationMode({
               )}
 
               {activePanel === "ranking" && (
-                <div className="grid gap-3">
-                  {topStandings.length > 0 ? topStandings.map((st, idx) => (
-                    <div key={idx} className={`rounded-3xl border p-5 ${idx === 0 ? 'border-yellow-400/40 bg-yellow-500/10' : 'border-white/10 bg-black/60'}`}>
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <div className="text-xs uppercase tracking-[0.35em] text-white/50">{idx + 1}º</div>
-                          <div className="text-xl font-black uppercase text-white mt-1">{st.name}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm uppercase text-white/50">VIT</div>
-                          <div className="text-xl font-black text-cyan-300">{st.pts || st.wins}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm uppercase text-white/50">SAL</div>
-                          <div className="text-xl font-black text-white">{st.diff > 0 ? `+${st.diff}` : st.diff}</div>
+                <div>
+                  <div className="flex justify-between items-center mb-4 border-b border-yellow-500/20 pb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="text-xl font-black text-yellow-500 uppercase">Ranking ao Vivo</div>
+                      <div className="relative group">
+                        <button className="text-gray-500 hover:text-yellow-400 transition text-sm">ℹ️</button>
+                        <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50">
+                          <div className="bg-gray-900 border border-yellow-500/40 rounded-xl p-3 text-xs text-gray-300 shadow-2xl whitespace-nowrap">
+                            <div className="font-black text-yellow-400 mb-2">Critérios de Desempate:</div>
+                            <div className="space-y-1">
+                              <div>1. Vitórias</div>
+                              <div>2. Saldo de Games</div>
+                              <div>3. Games Pró</div>
+                              <div>4. Confronto Direto</div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  )) : (
-                    <div className="text-white/50">Ranking ainda não disponível.</div>
-                  )}
+                    <button
+                      onClick={() => saveElementAsImage("ranking-full-panel", "classificacao-final.png")}
+                      className="px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-400 text-sm font-bold rounded-xl transition"
+                    >
+                      📷 Baixar
+                    </button>
+                  </div>
+                  <div id="ranking-full-panel" className="grid gap-3">
+                    {topStandings.length > 0 ? topStandings.map((st, idx) => (
+                      <div key={idx} className={`rounded-3xl border p-5 ${idx === 0 ? 'border-yellow-400/40 bg-yellow-500/10' : 'border-white/10 bg-black/60'}`}>
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <div className="text-xs uppercase tracking-[0.35em] text-white/50">{idx + 1}º</div>
+                            <div className="text-xl font-black uppercase text-white mt-1">{st.name}</div>
+                          </div>
+                          <div className="flex gap-6 items-center">
+                            <div className="text-right">
+                              <div className="text-sm uppercase text-white/50">VIT</div>
+                              <div className="text-xl font-black text-cyan-300">{st.pts || st.wins}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm uppercase text-white/50">GP</div>
+                              <div className="text-xl font-black text-green-400">{st.games}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm uppercase text-white/50">SG</div>
+                              <div className="text-xl font-black text-white">{st.diff > 0 ? `+${st.diff}` : st.diff}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    )) : (
+                      <div className="text-white/50">Ranking ainda não disponível.</div>
+                    )}
+                  </div>
                 </div>
               )}
 
-              {activePanel === "results" && (
-                <div className="space-y-3">
-                  {finishedMatches.length > 0 ? finishedMatches.slice(0, 8).map((m, idx) => {
-                    const scoreA = data.matchResults[m.globalId]?.scoreA;
-                    const scoreB = data.matchResults[m.globalId]?.scoreB;
-                    const { text: scoreText, winner } = formatMatchScore(scoreA, scoreB);
-                    return (
-                      <div key={idx} className="rounded-3xl border border-white/10 bg-black/60 p-5">
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-full min-w-[5rem] flex-col items-center justify-center rounded-3xl border border-brand-pink/30 bg-brand-pink/10 px-4 py-3 text-center">
-                          <span className="text-[10px] uppercase tracking-[0.35em] text-white/60 mb-2">Resultado</span>
-                          <span className="text-3xl font-black text-brand-pink leading-none">{scoreText}</span>
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <div className={`text-base font-black uppercase tracking-tight ${winner === "A" ? "text-yellow-400" : "text-white"}`}>
-                            {getFullTeamName(m.teamA)}
+{activePanel === "results" && (
+                <div>
+                  <div className="flex justify-between items-center mb-4 border-b border-brand-pink/20 pb-2">
+                    <div className="text-xl font-black text-brand-pink">Últimos Resultados</div>
+                    <button
+                      onClick={() => saveElementAsImage("results-full-panel", "resultados-partidas.png")}
+                      className="px-4 py-2 bg-pink-500/20 hover:bg-pink-500/40 text-brand-pink text-sm font-bold rounded-xl transition"
+                    >
+                      📷 Baixar
+                    </button>
+                  </div>
+                  <div id="results-full-panel" className="space-y-3">
+                    {finishedMatches.length > 0 ? finishedMatches.slice(0, 8).map((m, idx) => {
+                      const scoreA = data.matchResults[m.globalId]?.scoreA;
+                      const scoreB = data.matchResults[m.globalId]?.scoreB;
+                      const { text: scoreText, winner } = formatMatchScore(scoreA, scoreB);
+                      return (
+                        <div key={idx} className="rounded-3xl border border-white/10 bg-black/60 p-5">
+                          <div className="flex items-center gap-4">
+                            <div className="flex h-full min-w-[5rem] flex-col items-center justify-center rounded-3xl border border-brand-pink/30 bg-brand-pink/10 px-4 py-3 text-center">
+                              <span className="text-[10px] uppercase tracking-[0.35em] text-white/60 mb-2">Resultado</span>
+                              <span className="text-3xl font-black text-brand-pink leading-none">{scoreText}</span>
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <div className={`text-base font-black uppercase tracking-tight ${winner === "A" ? "text-yellow-400" : "text-white"}`}>
+                                {getFullTeamName(m.teamA)}
+                              </div>
+                              <div className="text-sm uppercase tracking-[0.15em] text-white/60">
+                                {getFullTeamName(m.teamB)}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-sm uppercase tracking-[0.15em] text-white/60">
-                            {getFullTeamName(m.teamB)}
-                          </div>
                         </div>
-                      </div>
-                    </div>
-                    );
-                  }) : (
-                    <div className="text-white/50">Nenhum resultado registrado ainda.</div>
-                  )}
+                      );
+                    }) : (
+                      <div className="text-white/50">Nenhum resultado registrado ainda.</div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
