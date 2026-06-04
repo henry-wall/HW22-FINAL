@@ -239,8 +239,8 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
 
   if (refereeMatch) {
     const rm = refereeMatch;
-    const teamAName = `${couples[rm.match.teamA[0]]?.womanName} & ${couples[rm.match.teamA[1]]?.manName}`;
-    const teamBName = `${couples[rm.match.teamB[0]]?.womanName} & ${couples[rm.match.teamB[1]]?.manName}`;
+    const teamAName = `${couples[rm.match.teamA[0]]?.womanName} & ${couples[rm.match.teamA[0]]?.manName}`;
+    const teamBName = `${couples[rm.match.teamB[0]]?.womanName} & ${couples[rm.match.teamB[0]]?.manName}`;
     return (
       <RefereeScoreboard
         teamAName={teamAName}

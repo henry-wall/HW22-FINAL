@@ -75,6 +75,124 @@ export default function PresentationMode({
     return p1;
   };
 
+  const getFullTeamName = (teamArray: number[]) => {
+    if (isMixed) {
+      return `${couples[teamArray[0]]?.womanName} / ${couples[teamArray[1]]?.manName}`;
+    }
+    if (config.format === "fixeddoubles" || config.format === "drawdoubles") {
+      return getPlayerName(teamArray[0]);
+    }
+    if (teamArray.length > 1) {
+      return `${getPlayerName(teamArray[0])} / ${getPlayerName(teamArray[1])}`;
+    }
+    return getPlayerName(teamArray[0]);
+  };
+
+  const LiveMatchScore = ({ m, config, data, isLarge }: any) => {
+    const liveState = data.liveScores?.[m.globalId];
+    const hasFinalScore = data.matchResults?.[m.globalId]?.scoreA || data.matchResults?.[m.globalId]?.scoreB;
+    
+    const teamAName = getFullTeamName(m.teamA);
+    const teamBName = getFullTeamName(m.teamB);
+
+    let serving = -1;
+    let s = liveState;
+    
+    let ptsA = "0";
+    let ptsB = "0";
+    let gamesA = 0;
+    let gamesB = 0;
+    let hist: any[] = [];
+    let showPoints = false;
+    let showGames = config.durationType !== "supertie";
+
+    if (liveState) {
+      serving = s.serving;
+      const isNoAd = config.matchSettings?.isNoAd ?? true;
+      
+      const getPt = (pl: 0 | 1) => {
+        if (config.durationType === "supertie" || s.tb) return String(s.tbPts[pl]);
+        if (config.durationType === "game6") return String(s.games[pl]);
+        const a = s.pts[0], b = s.pts[1];
+        if (a >= 3 && b >= 3 && !isNoAd) {
+          if (a === b) return "40";
+          return s.pts[pl] > s.pts[1 - pl] ? "Ad" : "40";
+        }
+        return PTS_LABELS[Math.min(s.pts[pl], 3)] || "0";
+      };
+
+      ptsA = getPt(0);
+      ptsB = getPt(1);
+      gamesA = s.games[0];
+      gamesB = s.games[1];
+      hist = s.hist || [];
+      showPoints = s.pts[0] > 0 || s.pts[1] > 0 || s.tbPts[0] > 0 || s.tbPts[1] > 0 || s.tb;
+    } else if (hasFinalScore) {
+      const scoreAStr = String(data.matchResults[m.globalId].scoreA);
+      const scoreBStr = String(data.matchResults[m.globalId].scoreB);
+      const aSets = scoreAStr.split("/");
+      const bSets = scoreBStr.split("/");
+      
+      aSets.forEach((val, i) => {
+        hist.push([Number(val), Number(bSets[i] || 0)]);
+      });
+      showPoints = false;
+      showGames = false;
+    }
+
+    const BroadcastRow = ({ name, isServing, sets, games, points, isBottom }: any) => (
+      <div className={`flex items-stretch bg-black/60 w-full ${isBottom ? 'rounded-b-xl border-t border-white/5' : 'rounded-t-xl'}`}>
+        <div className="flex-1 flex items-center px-4 py-3 min-w-0">
+          <div className={`w-3 h-3 rounded-full shrink-0 mr-3 ${isServing ? 'bg-yellow-400 shadow-[0_0_8px_#facc15]' : 'bg-transparent'}`}></div>
+          <span className={`font-black uppercase tracking-tight truncate ${isLarge ? 'text-2xl' : 'text-base'} text-white`}>
+            {name}
+          </span>
+        </div>
+        
+        {sets.map((setInfo: any, idx: number) => (
+          <div key={idx} className="w-12 border-l border-white/5 bg-white/5 flex items-center justify-center">
+            <span className={`font-black ${isLarge ? 'text-2xl' : 'text-lg'} text-white/50`}>{setInfo}</span>
+          </div>
+        ))}
+
+        {showGames && (
+          <div className="w-12 border-l border-white/5 bg-white/10 flex items-center justify-center">
+            <span className={`font-black ${isLarge ? 'text-3xl' : 'text-xl'} text-white`}>{games}</span>
+          </div>
+        )}
+
+        {showPoints && (
+          <div className="w-14 border-l border-white/5 bg-cyan-500 flex items-center justify-center">
+            <span className={`font-black ${isLarge ? 'text-3xl' : 'text-xl'} text-black ${points === 'Ad' ? 'text-xl' : ''}`}>
+              {points}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+
+    return (
+      <div className="flex flex-col shadow-2xl rounded-xl overflow-hidden border border-white/10 mx-2">
+        <BroadcastRow 
+          name={teamAName} 
+          isServing={serving === 0} 
+          sets={hist.map(h => h[0])} 
+          games={gamesA} 
+          points={ptsA} 
+          isBottom={false} 
+        />
+        <BroadcastRow 
+          name={teamBName} 
+          isServing={serving === 1} 
+          sets={hist.map(h => h[1])} 
+          games={gamesB} 
+          points={ptsB} 
+          isBottom={true} 
+        />
+      </div>
+    );
+  };
+
   const topStandings = useMemo(() => {
     if (!data) return [];
     let ranking: any[] = [];
@@ -156,116 +274,7 @@ export default function PresentationMode({
                   
                   {m ? (
                     <div className="flex-1 flex flex-col justify-center">
-                      {(() => {
-                        const liveState = data.liveScores?.[m.globalId];
-                        const hasFinalScore = data.matchResults?.[m.globalId]?.scoreA || data.matchResults?.[m.globalId]?.scoreB;
-                        
-                        const teamAName = getTeamName(m.teamA);
-                        const teamBName = getTeamName(m.teamB);
-
-                        let serving = -1;
-                        let s = liveState;
-                        
-                        let ptsA = "0";
-                        let ptsB = "0";
-                        let gamesA = 0;
-                        let gamesB = 0;
-                        let hist: any[] = [];
-                        let showPoints = false;
-                        let showGames = config.durationType !== "supertie";
-
-                        if (liveState) {
-                          serving = s.serving;
-                          const isNoAd = config.matchSettings?.isNoAd ?? true;
-                          
-                          const getPt = (pl: 0 | 1) => {
-                            if (config.durationType === "supertie" || s.tb) return String(s.tbPts[pl]);
-                            if (config.durationType === "game6") return String(s.games[pl]);
-                            const a = s.pts[0], b = s.pts[1];
-                            if (a >= 3 && b >= 3 && !isNoAd) {
-                              if (a === b) return "40";
-                              return s.pts[pl] > s.pts[1 - pl] ? "Ad" : "40";
-                            }
-                            return PTS_LABELS[Math.min(s.pts[pl], 3)] || "0";
-                          };
-
-                          ptsA = getPt(0);
-                          ptsB = getPt(1);
-                          gamesA = s.games[0];
-                          gamesB = s.games[1];
-                          hist = s.hist || [];
-                          showPoints = s.pts[0] > 0 || s.pts[1] > 0 || s.tbPts[0] > 0 || s.tbPts[1] > 0 || s.tb;
-                        } else if (hasFinalScore) {
-                          // Parse final score
-                          const scoreAStr = String(data.matchResults[m.globalId].scoreA);
-                          const scoreBStr = String(data.matchResults[m.globalId].scoreB);
-                          const aSets = scoreAStr.split("/");
-                          const bSets = scoreBStr.split("/");
-                          
-                          aSets.forEach((val, i) => {
-                            hist.push([Number(val), Number(bSets[i] || 0)]);
-                          });
-                          showPoints = false;
-                          showGames = false;
-                        }
-
-                        // Broadcast Layout component
-                        const BroadcastRow = ({ name, isServing, sets, games, points, isBottom }: any) => (
-                          <div className={`flex items-stretch bg-black/60 w-full ${isBottom ? 'rounded-b-xl border-t border-white/5' : 'rounded-t-xl'}`}>
-                            {/* Nome e Saque */}
-                            <div className="flex-1 flex items-center px-4 py-3 min-w-0">
-                              <div className={`w-3 h-3 rounded-full shrink-0 mr-3 ${isServing ? 'bg-yellow-400 shadow-[0_0_8px_#facc15]' : 'bg-transparent'}`}></div>
-                              <span className={`font-black uppercase tracking-tight truncate ${isLarge ? 'text-2xl' : 'text-base'} text-white`}>
-                                {name}
-                              </span>
-                            </div>
-                            
-                            {/* Histórico de Sets */}
-                            {sets.map((setInfo: any[], idx: number) => (
-                              <div key={idx} className="w-12 border-l border-white/5 bg-white/5 flex items-center justify-center">
-                                <span className={`font-black ${isLarge ? 'text-2xl' : 'text-lg'} text-white/50`}>{setInfo}</span>
-                              </div>
-                            ))}
-
-                            {/* Games Atuais */}
-                            {showGames && (
-                              <div className="w-12 border-l border-white/5 bg-white/10 flex items-center justify-center">
-                                <span className={`font-black ${isLarge ? 'text-3xl' : 'text-xl'} text-white`}>{games}</span>
-                              </div>
-                            )}
-
-                            {/* Pontos Atuais */}
-                            {showPoints && (
-                              <div className="w-14 border-l border-white/5 bg-cyan-500 flex items-center justify-center">
-                                <span className={`font-black ${isLarge ? 'text-3xl' : 'text-xl'} text-black ${points === 'Ad' ? 'text-xl' : ''}`}>
-                                  {points}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        );
-
-                        return (
-                          <div className="flex flex-col shadow-2xl rounded-xl overflow-hidden border border-white/10 mx-2">
-                            <BroadcastRow 
-                              name={teamAName} 
-                              isServing={serving === 0} 
-                              sets={hist.map(h => h[0])} 
-                              games={gamesA} 
-                              points={ptsA} 
-                              isBottom={false} 
-                            />
-                            <BroadcastRow 
-                              name={teamBName} 
-                              isServing={serving === 1} 
-                              sets={hist.map(h => h[1])} 
-                              games={gamesB} 
-                              points={ptsB} 
-                              isBottom={true} 
-                            />
-                          </div>
-                        );
-                      })()}
+                      <LiveMatchScore m={m} config={config} data={data} isLarge={isLarge} />
                     </div>
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center opacity-10">
@@ -288,11 +297,11 @@ export default function PresentationMode({
                 <div className="bg-pink-500 text-white w-14 h-14 rounded-xl flex items-center justify-center font-black text-2xl shadow-[0_0_15px_rgba(255,5,149,0.3)] shrink-0">{idx + 1}</div>
                 <div className="flex-1 min-w-0 flex items-center gap-4">
                   <div className="flex-1 text-right text-xl font-black break-words text-white uppercase tracking-tight">
-                    {isMixed ? `${couples[m.teamA[0]]?.womanName} / ${couples[m.teamA[1]]?.manName}` : `${getPlayerName(m.teamA[0])} / ${getPlayerName(m.teamA[1])}`}
+                    {getFullTeamName(m.teamA)}
                   </div>
                   <div className="text-[10px] text-pink-500 font-black uppercase tracking-widest italic shrink-0">VS</div>
                   <div className="flex-1 text-left text-xl font-black break-words text-white uppercase tracking-tight">
-                    {isMixed ? `${couples[m.teamB[0]]?.womanName} / ${couples[m.teamB[1]]?.manName}` : `${getPlayerName(m.teamB[0])} / ${getPlayerName(m.teamB[1])}`}
+                    {getFullTeamName(m.teamB)}
                   </div>
                 </div>
               </div>
@@ -353,7 +362,7 @@ export default function PresentationMode({
                   <div key={idx} className="flex items-center justify-between bg-black/60 p-4 rounded-2xl border border-white/10">
                     <span className={`text-base font-black truncate flex-1 uppercase tracking-tight ${winner === "A" ? "text-yellow-400" : "text-white"}`}>
                       {winner === "A" && "👑 "}
-                      {isMixed ? `${couples[m.teamA[0]]?.womanName} / ${couples[m.teamA[1]]?.manName}` : `${getPlayerName(m.teamA[0])} / ${getPlayerName(m.teamA[1])}`}
+                      {getFullTeamName(m.teamA)}
                     </span>
                     <div className="flex items-center gap-4 mx-6">
                       <span className="bg-brand-pink text-white px-4 py-1.5 rounded-xl font-black text-2xl tabular-nums shadow-[0_0_15px_rgba(255,5,149,0.4)] border border-brand-pink/50 whitespace-nowrap">
@@ -361,7 +370,7 @@ export default function PresentationMode({
                       </span>
                     </div>
                     <span className={`text-base font-black truncate flex-1 text-right uppercase tracking-tight ${winner === "B" ? "text-yellow-400" : "text-white"}`}>
-                      {isMixed ? `${couples[m.teamB[0]]?.womanName} / ${couples[m.teamB[1]]?.manName}` : `${getPlayerName(m.teamB[0])} / ${getPlayerName(m.teamB[1])}`}
+                      {getFullTeamName(m.teamB)}
                       {winner === "B" && " 👑"}
                     </span>
                   </div>
@@ -411,8 +420,7 @@ export default function PresentationMode({
                         </div>
                         {m ? (
                           <div className="space-y-3">
-                            <div className="text-base font-bold text-white">{getTeamName(m.teamA)}</div>
-                            <div className="text-base font-bold text-white">{getTeamName(m.teamB)}</div>
+                            <LiveMatchScore m={m} config={config} data={data} isLarge={false} />
                           </div>
                         ) : (
                           <div className="text-sm text-white/50">Nenhuma partida em andamento nesta quadra.</div>
@@ -429,9 +437,9 @@ export default function PresentationMode({
                     <div key={idx} className="rounded-3xl border border-white/10 bg-black/60 p-5">
                       <div className="text-sm text-white/50 uppercase tracking-[0.25em] mb-3">Partida {idx + 1}</div>
                       <div className="flex flex-col gap-2">
-                        <div className="text-lg font-black text-white">{isMixed ? `${couples[m.teamA[0]]?.womanName} / ${couples[m.teamA[1]]?.manName}` : `${getPlayerName(m.teamA[0])} / ${getPlayerName(m.teamA[1])}`}</div>
+                        <div className="text-lg font-black text-white">{getFullTeamName(m.teamA)}</div>
                         <div className="text-sm uppercase tracking-[0.35em] text-pink-400">vs</div>
-                        <div className="text-lg font-black text-white">{isMixed ? `${couples[m.teamB[0]]?.womanName} / ${couples[m.teamB[1]]?.manName}` : `${getPlayerName(m.teamB[0])} / ${getPlayerName(m.teamB[1])}`}</div>
+                        <div className="text-lg font-black text-white">{getFullTeamName(m.teamB)}</div>
                       </div>
                     </div>
                   )) : (
@@ -480,10 +488,10 @@ export default function PresentationMode({
                         </div>
                         <div className="flex-1 space-y-1">
                           <div className={`text-base font-black uppercase tracking-tight ${winner === "A" ? "text-yellow-400" : "text-white"}`}>
-                            {isMixed ? `${couples[m.teamA[0]]?.womanName} / ${couples[m.teamA[1]]?.manName}` : `${getPlayerName(m.teamA[0])} / ${getPlayerName(m.teamA[1])}`}
+                            {getFullTeamName(m.teamA)}
                           </div>
                           <div className="text-sm uppercase tracking-[0.15em] text-white/60">
-                            {isMixed ? `${couples[m.teamB[0]]?.womanName} / ${couples[m.teamB[1]]?.manName}` : `${getPlayerName(m.teamB[0])} / ${getPlayerName(m.teamB[1])}`}
+                            {getFullTeamName(m.teamB)}
                           </div>
                         </div>
                       </div>

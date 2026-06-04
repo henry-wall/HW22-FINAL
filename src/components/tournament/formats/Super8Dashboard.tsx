@@ -304,9 +304,6 @@ export default function Super8Dashboard({ config, players, openMatchGlobalId }: 
       {abbreviateName(players[teamArray[0]])} <span className="mx-0.5 text-white/30 font-normal">&</span> {abbreviateName(players[teamArray[1]])}
     </>
   );
-
-  if (!isLoaded) return <div className="p-8 text-center text-muted">Carregando dados do torneio...</div>;
-
   // Referee overlay
   useEffect(() => {
     if (!openMatchGlobalId || !isLoaded) return;
@@ -326,6 +323,8 @@ export default function Super8Dashboard({ config, players, openMatchGlobalId }: 
       setActiveTab("operation");
     }
   }, [openMatchGlobalId, data, isLoaded]);
+
+  if (!isLoaded) return <div className="p-8 text-center text-muted">Carregando dados do torneio...</div>;
   if (refereeMatch) {
     const rm = refereeMatch;
     const teamAName = `${players[rm.match.teamA[0]]} & ${players[rm.match.teamA[1]]}`;

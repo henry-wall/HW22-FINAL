@@ -33,19 +33,8 @@ const CRITERIA_INFO: Record<TiebreakerCriterion, { icon: string; title: string; 
 };
 
 export default function Step5Victory({ order, onChange, durationType, onNext, onBack }: Step5VictoryProps) {
-  const isGame6 = durationType === "game6";
-
-  // Force gamediff to be first if game6 is selected
-  useEffect(() => {
-    if (isGame6 && order[0] !== "gamediff") {
-      const newOrder = ["gamediff" as TiebreakerCriterion, ...order.filter(c => c !== "gamediff")];
-      onChange(newOrder);
-    }
-  }, [isGame6, order, onChange]);
-
   const moveUp = (index: number) => {
     if (index === 0) return;
-    if (isGame6 && index === 1) return; // Cannot move above index 0 if game6
 
     const newOrder = [...order];
     const temp = newOrder[index - 1];
@@ -56,7 +45,6 @@ export default function Step5Victory({ order, onChange, durationType, onNext, on
 
   const moveDown = (index: number) => {
     if (index === order.length - 1) return;
-    if (isGame6 && index === 0) return; // Cannot move index 0 if game6
 
     const newOrder = [...order];
     const temp = newOrder[index + 1];
@@ -72,28 +60,22 @@ export default function Step5Victory({ order, onChange, durationType, onNext, on
         Defina a ordem de importância dos critérios. O sistema avaliará de cima para baixo.
       </p>
 
-      {isGame6 && (
-        <div className="bg-brand-pink/10 border border-brand-pink/30 p-3 rounded-lg mb-4 text-xs text-brand-pink font-medium">
-          * Para o formato "Até 6 Games", o Saldo de Games é obrigatoriamente o 1º critério.
-        </div>
-      )}
+      {/* Removed fixed rule message for game6 so organizer can change criteria */}
 
       <div className="space-y-2 mb-8">
-        {order.map((criterion, index) => {
+          {order.map((criterion, index) => {
           const info = CRITERIA_INFO[criterion];
-          const isLocked = isGame6 && index === 0;
-
-          return (
+            return (
             <div
               key={criterion}
               className={`flex items-center gap-3 p-3 rounded-xl border ${
-                isLocked ? "bg-surface-elevated/50 border-brand-pink/30" : "bg-surface-elevated border-border-main"
+                "bg-surface-elevated border-border-main"
               }`}
             >
               <div className="flex flex-col gap-1 items-center justify-center">
                 <button
                   onClick={() => moveUp(index)}
-                  disabled={isLocked || index === 0 || (isGame6 && index === 1)}
+                  disabled={index === 0}
                   className="w-8 h-8 flex items-center justify-center rounded-lg bg-surface hover:bg-surface-hover text-text-secondary hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   ▲
@@ -101,7 +83,7 @@ export default function Step5Victory({ order, onChange, durationType, onNext, on
                 <div className="text-[10px] font-black text-brand-cyan px-1">{index + 1}º</div>
                 <button
                   onClick={() => moveDown(index)}
-                  disabled={isLocked || index === order.length - 1}
+                  disabled={index === order.length - 1}
                   className="w-8 h-8 flex items-center justify-center rounded-lg bg-surface hover:bg-surface-hover text-text-secondary hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   ▼
@@ -113,7 +95,6 @@ export default function Step5Victory({ order, onChange, durationType, onNext, on
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-text-primary text-sm">{info.title}</span>
-                    {isLocked && <span className="text-[10px] bg-brand-pink/20 text-brand-pink px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Fixo</span>}
                   </div>
                   <p className="text-text-secondary text-xs leading-snug mt-0.5">{info.subtitle}</p>
                 </div>

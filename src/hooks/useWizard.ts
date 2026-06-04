@@ -49,6 +49,12 @@ export function useWizard(onComplete: (config: TournamentConfig, players: string
       // Sync match settings if duration changes
       if (partial.durationType) {
         next.matchSettings = getDefaultMatchSettings(partial.durationType);
+        // If the organizer selects the "Até 7 games" duration, remove
+        // the `gamediff` criterion from the default tiebreaker order
+        // so it's not fixed; the organizer can still change it later.
+        if (partial.durationType === "game6") {
+          next.tiebreakerOrder = ["wins", "direct_confrontation", "gamesfor"];
+        }
       }
       return next;
     });
