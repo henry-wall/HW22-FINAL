@@ -330,15 +330,15 @@ export default function PresentationMode({
           <div id="ranking-panel" className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 overflow-y-auto hide-scrollbar pr-2">
             {topStandings.map((st, idx) => (
               <div key={idx} className={`flex justify-between items-center p-4 rounded-2xl border-2 transition-all ${
-                idx === 0 ? "bg-yellow-500/20 border-yellow-500/40 scale-[1.02]" : "bg-black/60 border-white/5"
+                idx === 0 ? "bg-yellow-500/20 border-yellow-500/40 scale-[1.02]" : idx === 1 ? "bg-gray-400/10 border-gray-400/30" : idx === 2 ? "bg-amber-600/10 border-amber-600/30" : "bg-black/60 border-white/5"
               }`}>
                 <div className="flex items-center gap-4 min-w-0">
                   <span className={`font-black w-8 text-center text-xl ${
-                    idx === 0 ? "text-yellow-400" : "text-gray-600"
+                    idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-amber-500" : "text-gray-600"
                   }`}>
                     {idx + 1}º
                   </span>
-                  <span className={`font-black truncate text-lg uppercase tracking-tight ${idx === 0 ? "text-white" : "text-gray-200"}`}>
+                  <span className={`font-black truncate text-lg uppercase tracking-tight ${idx === 0 ? "text-white" : idx === 1 ? "text-gray-200" : idx === 2 ? "text-amber-100" : "text-gray-200"}`}>
                     {st.name}
                   </span>
                 </div>
@@ -493,11 +493,11 @@ export default function PresentationMode({
                   </div>
                   <div id="ranking-full-panel" className="grid gap-3">
                     {topStandings.length > 0 ? topStandings.map((st, idx) => (
-                      <div key={idx} className={`rounded-3xl border p-5 ${idx === 0 ? 'border-yellow-400/40 bg-yellow-500/10' : 'border-white/10 bg-black/60'}`}>
+                      <div key={idx} className={`rounded-3xl border p-5 ${idx === 0 ? 'border-yellow-400/50 bg-yellow-500/15' : idx === 1 ? 'border-gray-400/40 bg-gray-400/10' : idx === 2 ? 'border-amber-600/40 bg-amber-600/10' : 'border-white/10 bg-black/60'}`}>
                         <div className="flex items-center justify-between gap-4">
                           <div>
-                            <div className="text-xs uppercase tracking-[0.35em] text-white/50">{idx + 1}º</div>
-                            <div className="text-xl font-black uppercase text-white mt-1">{st.name}</div>
+                            <div className={`text-xs uppercase tracking-[0.35em] ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-gray-300' : idx === 2 ? 'text-amber-500' : 'text-white/50'}`}>{idx + 1}º</div>
+                            <div className={`text-xl font-black uppercase mt-1 ${idx === 0 ? 'text-yellow-300' : idx === 1 ? 'text-gray-200' : idx === 2 ? 'text-amber-400' : 'text-white'}`}>{st.name}</div>
                           </div>
                           <div className="flex gap-6 items-center">
                             <div className="text-right">
