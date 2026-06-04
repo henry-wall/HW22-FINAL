@@ -236,10 +236,13 @@ export default function PresentationMode({
         
         {/* Q1: Live Courts */}
         <div onClick={() => setActivePanel("live")} className="cursor-pointer bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden transition hover:border-cyan-400/40">
-          <h2 className="text-xl font-black text-cyan-400 mb-5 flex items-center gap-3 uppercase tracking-[0.2em]">
-            <span className="w-3 h-3 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#00FFFF]"></span>
-            Em Andamento
-          </h2>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-xl font-black text-cyan-400 flex items-center gap-3 uppercase tracking-[0.2em]">
+              <span className="w-3 h-3 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#00FFFF]"></span>
+              Em Andamento
+            </h2>
+            
+          </div>
           <div className={`grid ${
             config.numCourts === 1 ? 'grid-cols-1' : 
             config.numCourts === 2 ? 'grid-cols-1 md:grid-cols-2' : 
@@ -275,19 +278,18 @@ export default function PresentationMode({
 
         {/* Q2: Next Games */}
         <div onClick={() => setActivePanel("next")} className="cursor-pointer bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden transition hover:border-pink-400/40">
-          <h2 className="text-xl font-black text-pink-500 mb-5 uppercase tracking-[0.2em] border-b border-pink-500/20 pb-2">Próximos Jogos</h2>
+          <div className="flex items-center justify-between mb-5 border-b border-pink-500/20 pb-2">
+            <h2 className="text-xl font-black text-pink-500 uppercase tracking-[0.2em]">Próximos Jogos</h2>
+            
+          </div>
           <div className="grid grid-cols-1 gap-3 overflow-y-auto hide-scrollbar pr-2">
             {queue.map((m, idx) => (
-              <div key={idx} className="bg-black/60 p-4 rounded-2xl border border-white/10 flex items-center gap-5 transition-transform">
+              <div key={idx} className="bg-black/60 p-4 rounded-2xl border border-white/10 flex items-center gap-5">
                 <div className="bg-pink-500 text-white w-14 h-14 rounded-xl flex items-center justify-center font-black text-2xl shadow-[0_0_15px_rgba(255,5,149,0.3)] shrink-0">{idx + 1}</div>
                 <div className="flex-1 min-w-0 flex items-center gap-4">
-                  <div className="flex-1 text-right text-xl font-black break-words text-white uppercase tracking-tight">
-                    {getFullTeamName(m.teamA)}
-                  </div>
+                  <div className="flex-1 text-right text-xl font-black break-words text-white uppercase tracking-tight">{getFullTeamName(m.teamA)}</div>
                   <div className="text-[10px] text-pink-500 font-black uppercase tracking-widest italic shrink-0">VS</div>
-                  <div className="flex-1 text-left text-xl font-black break-words text-white uppercase tracking-tight">
-                    {getFullTeamName(m.teamB)}
-                  </div>
+                  <div className="flex-1 text-left text-xl font-black break-words text-white uppercase tracking-tight">{getFullTeamName(m.teamB)}</div>
                 </div>
               </div>
             ))}
@@ -406,21 +408,9 @@ export default function PresentationMode({
         <div className="absolute inset-0 z-40 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
           <div className="w-full max-w-6xl bg-[#0b1220] border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-              <div>
-                <div className="text-xs uppercase tracking-[0.35em] text-white/50">Janela de detalhe</div>
-                <div className="text-3xl font-black text-white uppercase mt-2">
-                  {activePanel === "live" && "Em Andamento"}
-                  {activePanel === "next" && "Próximos Jogos"}
-                  {activePanel === "ranking" && "Ranking ao Vivo"}
-                  {activePanel === "results" && "Últimos Resultados"}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActivePanel("none")}
-                className="text-sm font-bold uppercase tracking-[0.25em] text-white/80 hover:text-white"
-              >
-                Fechar
+              <img src={logoUrl} alt="Logo" className="h-14 object-contain" />
+              <button type="button" onClick={() => setActivePanel("none")} className="text-sm font-bold uppercase tracking-[0.25em] text-white/80 hover:text-white">
+                ✖ Fechar
               </button>
             </div>
             <div className="max-h-[75vh] overflow-y-auto p-6 space-y-4">
@@ -448,14 +438,14 @@ export default function PresentationMode({
               )}
 
               {activePanel === "next" && (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3">
                   {queue.length > 0 ? queue.map((m, idx) => (
-                    <div key={idx} className="rounded-3xl border border-white/10 bg-black/60 p-5">
-                      <div className="text-sm text-white/50 uppercase tracking-[0.25em] mb-3">Partida {idx + 1}</div>
-                      <div className="flex flex-col gap-2">
-                        <div className="text-lg font-black text-white">{getFullTeamName(m.teamA)}</div>
-                        <div className="text-sm uppercase tracking-[0.35em] text-pink-400">vs</div>
-                        <div className="text-lg font-black text-white">{getFullTeamName(m.teamB)}</div>
+                    <div key={idx} className="bg-black/60 p-5 rounded-2xl border border-white/10 flex items-center gap-5">
+                      <div className="bg-pink-500 text-white w-14 h-14 rounded-xl flex items-center justify-center font-black text-2xl shadow-[0_0_15px_rgba(255,5,149,0.3)] shrink-0">{idx + 1}</div>
+                      <div className="flex-1 min-w-0 flex items-center gap-4">
+                        <div className="flex-1 text-right text-xl font-black break-words text-white uppercase tracking-tight">{getFullTeamName(m.teamA)}</div>
+                        <div className="text-[10px] text-pink-500 font-black uppercase tracking-widest italic shrink-0">VS</div>
+                        <div className="flex-1 text-left text-xl font-black break-words text-white uppercase tracking-tight">{getFullTeamName(m.teamB)}</div>
                       </div>
                     </div>
                   )) : (
