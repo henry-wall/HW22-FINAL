@@ -1,10 +1,8 @@
-import { useEffect } from "react";
-import type { TiebreakerCriterion, DurationType } from "../../types/tournament";
+import type { TiebreakerCriterion } from "../../types/tournament";
 
 interface Step5VictoryProps {
   order: TiebreakerCriterion[];
   onChange: (order: TiebreakerCriterion[]) => void;
-  durationType: DurationType;
   onNext: () => void;
   onBack: () => void;
 }
@@ -32,7 +30,7 @@ const CRITERIA_INFO: Record<TiebreakerCriterion, { icon: string; title: string; 
   },
 };
 
-export default function Step5Victory({ order, onChange, durationType, onNext, onBack }: Step5VictoryProps) {
+export default function Step5Victory({ order, onChange, onNext, onBack }: Step5VictoryProps) {
   const moveUp = (index: number) => {
     if (index === 0) return;
 

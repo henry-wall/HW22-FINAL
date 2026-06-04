@@ -36,43 +36,12 @@ export default function PresentationMode({
   }, []);
 
   const isMixed = config.format === "mixeddoubles";
-  
-  const abbreviateName = (name?: string) => {
-    if (!name) return "";
-    // Handle couple names (e.g. "Maria Silva & João Souza")
-    if (name.includes(" & ") || name.includes(" / ")) {
-      const parts = name.split(/ [&\/] /);
-      return parts.map(part => {
-        const words = part.trim().split(/\s+/);
-        if (words.length <= 1) return part.toUpperCase();
-        return `${words[0].charAt(0).toUpperCase()}. ${words[words.length - 1].toUpperCase()}`;
-      }).join(" / ");
-    }
-    // Handle single names
-    const parts = name.trim().split(/\s+/);
-    if (parts.length <= 1) return name.toUpperCase();
-    return `${parts[0].charAt(0).toUpperCase()}. ${parts[parts.length - 1].toUpperCase()}`;
-  };
 
   const getPlayerName = (idx: number) => {
     if ((config.format === "fixeddoubles" || config.format === "drawdoubles") && couples[idx]) {
       return `${couples[idx].womanName} & ${couples[idx].manName}`;
     }
     return players[idx] || `P${idx + 1}`;
-  };
-
-  const getTeamName = (teamArray: number[]) => {
-    if (isMixed) {
-      const woman = abbreviateName(couples[teamArray[0]]?.womanName);
-      const man = abbreviateName(couples[teamArray[1]]?.manName);
-      return `${woman} / ${man}`;
-    }
-    const p1 = abbreviateName(getPlayerName(teamArray[0]));
-    if (teamArray.length > 1) {
-      const p2 = abbreviateName(getPlayerName(teamArray[1]));
-      return `${p1} / ${p2}`;
-    }
-    return p1;
   };
 
   const getFullTeamName = (teamArray: number[]) => {

@@ -90,7 +90,6 @@ export default function TournamentWizard({ events, onComplete, onCancel }: Tourn
         <Step5Victory
           order={state.tiebreakerOrder}
           onChange={(order) => update({ tiebreakerOrder: order })}
-          durationType={state.durationType}
           onNext={next}
           onBack={back}
         />
