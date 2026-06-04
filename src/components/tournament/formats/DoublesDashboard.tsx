@@ -39,9 +39,10 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
     }
   }, [openMatchGlobalId, data, isLoaded]);
 
+  const gamesPerSet = config.matchSettings?.gamesPerSet ?? 6;
   const isGame6ScoreValid = (scoreA: string | number, scoreB: string | number) => {
     if (config.durationType !== "game6") return true;
-    return sumScore(scoreA) + sumScore(scoreB) === 6;
+    return sumScore(scoreA) + sumScore(scoreB) === gamesPerSet;
   };
 
   // Initial generation
@@ -568,7 +569,7 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
 
                 {!isGame6ScoreValid(res.scoreA, res.scoreB) && (
                   <div className="text-xs font-bold text-red-400 bg-red-400/10 px-4 py-2 rounded-lg border border-red-400/20">
-                    ⚠️ A soma dos games deve ser exatamente 6 para este formato.
+                    ⚠️ A soma dos games deve ser exatamente {gamesPerSet} para este formato.
                   </div>
                 )}
               </div>
