@@ -62,9 +62,11 @@ export default function MixedDoublesDashboard({ config, couples, openMatchGlobal
   };
 
   const isGame6ScoreValid = (scoreA: string | number, scoreB: string | number): boolean => {
+    const gamesPerSet = config.durationType === "game6" ? 7 : 6;
     if (config.durationType !== "game6") return true;
     if (scoreA === "" || scoreB === "") return true;
-    return sumScore(scoreA) + sumScore(scoreB) === 6;
+    const totalScore = sumScore(scoreA) + sumScore(scoreB);
+    return totalScore <= gamesPerSet;
   };
 
   const handleStartOperation = () => {
