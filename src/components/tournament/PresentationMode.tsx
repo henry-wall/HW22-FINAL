@@ -8,18 +8,68 @@ import html2canvas from "html2canvas";
 
 const PTS_LABELS = ["0", "15", "30", "40"];
 
-// Save element as PNG image
-const saveElementAsImage = async (id: string, filename: string) => {
-  const el = document.getElementById(id);
-  if (!el) return;
+const generateFullImage = async (
+  containerId: string,
+  filename: string,
+  title: string
+) => {
+  const source = document.getElementById(containerId);
+  if (!source) return;
+  const wrapper = document.createElement("div");
+  wrapper.style.cssText =
+    "position:fixed;left:-9999px;top:0;width:540px;z-index:-1;";
+  const bg = document.createElement("div");
+  bg.style.cssText =
+    "background:#0a0a0f;padding:32px;border-radius:24px;font-family:system-ui,sans-serif;";
+  const header = document.createElement("div");
+  header.style.cssText =
+    "display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.1);";
+  const logo = document.querySelector(
+    'img[alt="Logo"]'
+  ) as HTMLImageElement | null;
+  if (logo) {
+    const logoClone = logo.cloneNode(true) as HTMLImageElement;
+    logoClone.style.cssText = "height:40px;object-fit:contain;";
+    header.appendChild(logoClone);
+  }
+  const titleEl = document.createElement("div");
+  titleEl.style.cssText = `font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:0.15em;color:${
+    title.includes("Ranking") ? "#eab308" : "#ff0595"
+  };`;
+  titleEl.textContent = title;
+  header.appendChild(titleEl);
+  bg.appendChild(header);
+  const content = source.cloneNode(true) as HTMLElement;
+  content.removeAttribute("id");
+  content.style.cssText =
+    "overflow:visible !important;max-height:none !important;display:grid;gap:10px;";
+  const items = content.querySelectorAll(
+    '[style*="overflow"],[class*="overflow"]'
+  );
+  items.forEach((item) => {
+    (item as HTMLElement).style.overflow = "visible";
+    (item as HTMLElement).style.maxHeight = "none";
+  });
+  bg.appendChild(content);
+  wrapper.appendChild(bg);
+  document.body.appendChild(wrapper);
+  await new Promise((r) => setTimeout(r, 100));
   try {
-    const canvas = await html2canvas(el, { backgroundColor: "#0a0a0f", scale: 2 });
+    const canvas = await html2canvas(bg, {
+      backgroundColor: "#0a0a0f",
+      scale: 3,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+    });
     const link = document.createElement("a");
     link.download = filename;
     link.href = canvas.toDataURL("image/png");
     link.click();
   } catch {
     alert("Erro ao salvar imagem. Tente novamente.");
+  } finally {
+    document.body.removeChild(wrapper);
   }
 };
 
@@ -194,6 +244,22 @@ export default function PresentationMode({
     return [...data.completedMatches].reverse().slice(0, 10);
   }, [data?.completedMatches]);
 
+  // Full data for image generation (no slice limits)
+  const allStandings = useMemo(() => {
+    if (!data) return [];
+    let ranking: any[] = [];
+    if (config.format === "mixeddoubles") ranking = calculateMixedDoublesRanking(config, data, couples);
+    else if (config.format === "super8") ranking = calculateSuper8Ranking(config, data, players);
+    else if (config.format === "kingqueen") ranking = calculateKingQueenRanking(config, data, players);
+    else if (config.format === "fixeddoubles" || config.format === "drawdoubles") ranking = calculateMixedDoublesRanking(config, data, couples);
+    return ranking; // All standings, no slice
+  }, [data, config, players, couples]);
+
+  const allFinishedMatches = useMemo(() => {
+    if (!data?.completedMatches) return [];
+    return [...data.completedMatches].reverse(); // All matches, no slice
+  }, [data?.completedMatches]);
+
   const queue = (data.matchQueue || []).slice(0, 4);
   const isFinished = data.completedMatches?.length > 0 && data.matchQueue?.length === 0 && Object.keys(data.inProgressMatches || {}).length === 0;
 
@@ -323,7 +389,7 @@ export default function PresentationMode({
               </div>
             </div>
             <button
-              onClick={(e) => { e.stopPropagation(); saveElementAsImage("ranking-panel", "ranking-ao-vivo.png"); }}
+              onClick={(e) => { e.stopPropagation(); generateFullImage("ranking-full-content", "ranking-ao-vivo.png", "Ranking ao Vivo"); }}
               className="px-3 py-1.5 bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-400 text-xs font-bold rounded-lg transition"
             >
               📷 Baixar
@@ -367,7 +433,7 @@ export default function PresentationMode({
         <div onClick={() => setActivePanel("results")} className="cursor-pointer bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col shadow-2xl overflow-hidden transition hover:border-pink-400/40">
           <div className="flex justify-between items-center mb-5 border-b border-brand-pink/20 pb-2">
             <h2 className="text-xl font-black text-brand-pink uppercase tracking-[0.2em]">Últimos Resultados</h2>
-            <button onClick={(e) => { e.stopPropagation(); saveElementAsImage("results-panel", "ultimos-resultados.png"); }} className="px-3 py-1.5 bg-pink-500/20 hover:bg-pink-500/40 text-brand-pink text-xs font-bold rounded-lg transition">📷 Baixar</button>
+            <button onClick={(e) => { e.stopPropagation(); generateFullImage("results-full-content", "ultimos-resultados.png", "Últimos Resultados"); }} className="px-3 py-1.5 bg-pink-500/20 hover:bg-pink-500/40 text-brand-pink text-xs font-bold rounded-lg transition">📷 Baixar</button>
           </div>
           <div id="results-panel" className="grid grid-cols-1 gap-2.5 overflow-y-auto hide-scrollbar pr-2">
             {finishedMatches.length > 0 ? (
@@ -406,14 +472,14 @@ export default function PresentationMode({
 
       {activePanel !== "none" && (
         <div className="absolute inset-0 z-40 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="w-full max-w-6xl bg-[#0b1220] border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+          <div className="w-full max-w-lg sm:max-w-2xl md:max-w-4xl lg:max-w-6xl bg-[#0b1220] border border-white/10 rounded-3xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
               <img src={logoUrl} alt="Logo" className="h-14 object-contain" />
               <button type="button" onClick={() => setActivePanel("none")} className="text-sm font-bold uppercase tracking-[0.25em] text-white/80 hover:text-white">
                 ✖ Fechar
               </button>
             </div>
-            <div className="max-h-[75vh] overflow-y-auto p-6 space-y-4">
+            <div className="max-h-[85vh] overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3">
               {activePanel === "live" && (
                 <div className="space-y-4">
                   {Array.from({ length: config.numCourts }, (_, i) => i + 1).map((c) => {
@@ -421,7 +487,7 @@ export default function PresentationMode({
                     return (
                       <div key={c} className="rounded-3xl border border-white/10 bg-black/60 p-5">
                         <div className="flex items-center justify-between mb-4">
-                          <span className="text-lg font-black uppercase tracking-[0.2em] text-cyan-300">Quadra {c}</span>
+                          <span className="text-base font-black uppercase tracking-[0.2em] text-cyan-300">Quadra {c}</span>
                           {m ? <span className="text-xs uppercase tracking-[0.3em] bg-cyan-400/10 text-cyan-300 px-3 py-1 rounded-full">AO VIVO</span> : <span className="text-xs uppercase tracking-[0.3em] text-white/40">Livre</span>}
                         </div>
                         {m ? (
@@ -475,7 +541,7 @@ export default function PresentationMode({
                       </div>
                     </div>
                     <button
-                      onClick={() => saveElementAsImage("ranking-full-panel", "classificacao-final.png")}
+                      onClick={() => generateFullImage("ranking-full-content", "classificacao-final.png", "Ranking ao Vivo")}
                       className="px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-400 text-sm font-bold rounded-xl transition"
                     >
                       📷 Baixar
@@ -483,24 +549,24 @@ export default function PresentationMode({
                   </div>
                   <div id="ranking-full-panel" className="grid gap-3">
                     {topStandings.length > 0 ? topStandings.map((st, idx) => (
-                      <div key={idx} className={`rounded-3xl border p-5 ${idx === 0 ? 'border-yellow-400/50 bg-yellow-500/15' : idx === 1 ? 'border-gray-400/40 bg-gray-400/10' : idx === 2 ? 'border-amber-600/40 bg-amber-600/10' : 'border-white/10 bg-black/60'}`}>
+                      <div key={idx} className={`rounded-2xl border p-3 sm:p-4 ${idx === 0 ? 'border-yellow-400/50 bg-yellow-500/15' : idx === 1 ? 'border-gray-400/40 bg-gray-400/10' : idx === 2 ? 'border-amber-600/40 bg-amber-600/10' : 'border-white/10 bg-black/60'}`}>
                         <div className="flex items-center justify-between gap-4">
                           <div>
                             <div className={`text-xs uppercase tracking-[0.35em] ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-gray-300' : idx === 2 ? 'text-amber-500' : 'text-white/50'}`}>{idx + 1}º</div>
-                            <div className={`text-xl font-black uppercase mt-1 ${idx === 0 ? 'text-yellow-300' : idx === 1 ? 'text-gray-200' : idx === 2 ? 'text-amber-400' : 'text-white'}`}>{st.name}</div>
+                            <div className={`text-base sm:text-lg font-black uppercase mt-1 ${idx === 0 ? 'text-yellow-300' : idx === 1 ? 'text-gray-200' : idx === 2 ? 'text-amber-400' : 'text-white'}`}>{st.name}</div>
                           </div>
-                          <div className="flex gap-6 items-center">
+                          <div className="flex gap-3 sm:gap-6 items-center">
                             <div className="text-right">
-                              <div className="text-sm uppercase text-white/50">VIT</div>
-                              <div className="text-xl font-black text-cyan-300">{st.pts || st.wins}</div>
+                              <div className="text-xs uppercase text-white/50">VIT</div>
+                              <div className="text-base sm:text-lg font-black text-cyan-300">{st.pts || st.wins}</div>
                             </div>
                             <div className="text-right">
-                              <div className="text-sm uppercase text-white/50">GP</div>
-                              <div className="text-xl font-black text-green-400">{st.games}</div>
+                              <div className="text-xs uppercase text-white/50">GP</div>
+                              <div className="text-base sm:text-lg font-black text-green-400">{st.games}</div>
                             </div>
                             <div className="text-right">
-                              <div className="text-sm uppercase text-white/50">SG</div>
-                              <div className="text-xl font-black text-white">{st.diff > 0 ? `+${st.diff}` : st.diff}</div>
+                              <div className="text-xs uppercase text-white/50">SG</div>
+                              <div className="text-base sm:text-lg font-black text-white">{st.diff > 0 ? `+${st.diff}` : st.diff}</div>
                           </div>
                         </div>
                       </div>
@@ -517,7 +583,7 @@ export default function PresentationMode({
                   <div className="flex justify-between items-center mb-4 border-b border-brand-pink/20 pb-2">
                     <div className="text-xl font-black text-brand-pink">Últimos Resultados</div>
                     <button
-                      onClick={() => saveElementAsImage("results-full-panel", "resultados-partidas.png")}
+                      onClick={() => generateFullImage("results-full-content", "resultados-partidas.png", "Últimos Resultados")}
                       className="px-4 py-2 bg-pink-500/20 hover:bg-pink-500/40 text-brand-pink text-sm font-bold rounded-xl transition"
                     >
                       📷 Baixar
@@ -595,6 +661,125 @@ export default function PresentationMode({
           </button>
         </div>
       )}
+
+      {/* Hidden elements for full image generation */}
+      <div id="ranking-full-content" style={{ position: "fixed", left: "-9999px", top: 0, zIndex: -1 }}>
+        <div style={{ display: "grid", gap: "10px" }}>
+          {allStandings.length > 0 ? allStandings.map((st, idx) => (
+            <div key={idx} style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "12px 16px",
+              borderRadius: "12px",
+              border: idx === 0 ? "2px solid rgba(234,179,8,0.5)" : idx === 1 ? "2px solid rgba(156,163,175,0.4)" : idx === 2 ? "2px solid rgba(217,119,6,0.4)" : "1px solid rgba(255,255,255,0.1)",
+              background: idx === 0 ? "rgba(234,179,8,0.15)" : idx === 1 ? "rgba(156,163,175,0.1)" : idx === 2 ? "rgba(217,119,6,0.1)" : "rgba(0,0,0,0.6)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <span style={{
+                  fontWeight: 900,
+                  fontSize: "18px",
+                  width: "32px",
+                  textAlign: "center",
+                  color: idx === 0 ? "#eab308" : idx === 1 ? "#9ca3af" : idx === 2 ? "#d97706" : "#6b7280",
+                }}>
+                  {idx + 1}º
+                </span>
+                <span style={{
+                  fontWeight: 900,
+                  fontSize: "16px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  color: idx === 0 ? "#fff" : idx === 1 ? "#e5e7eb" : idx === 2 ? "#fbbf24" : "#e5e7eb",
+                }}>
+                  {st.name}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: "16px", fontSize: "14px", fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "10px", textTransform: "uppercase", color: "rgba(255,255,255,0.5)" }}>VIT</div>
+                  <div style={{ color: "#22d3ee", fontSize: "16px" }}>{st.pts || st.wins}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "10px", textTransform: "uppercase", color: "rgba(255,255,255,0.5)" }}>GP</div>
+                  <div style={{ color: "#4ade80", fontSize: "16px" }}>{st.games}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "10px", textTransform: "uppercase", color: "rgba(255,255,255,0.5)" }}>SG</div>
+                  <div style={{ color: "#fff", fontSize: "16px" }}>{st.diff > 0 ? `+${st.diff}` : st.diff}</div>
+                </div>
+              </div>
+            </div>
+          )) : (
+            <div style={{ color: "rgba(255,255,255,0.5)" }}>Ranking ainda não disponível.</div>
+          )}
+        </div>
+      </div>
+
+      <div id="results-full-content" style={{ position: "fixed", left: "-9999px", top: 0, zIndex: -1 }}>
+        <div style={{ display: "grid", gap: "10px" }}>
+          {allFinishedMatches.length > 0 ? allFinishedMatches.map((m, idx) => {
+            const scoreA = data.matchResults[m.globalId]?.scoreA;
+            const scoreB = data.matchResults[m.globalId]?.scoreB;
+            const { text: scoreText, winner } = formatMatchScore(scoreA, scoreB);
+            return (
+              <div key={idx} style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px 16px",
+                borderRadius: "16px",
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(0,0,0,0.6)",
+              }}>
+                <span style={{
+                  fontWeight: 900,
+                  fontSize: "14px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  flex: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  color: winner === "A" ? "#facc15" : "#fff",
+                }}>
+                  {getFullTeamName(m.teamA)}
+                </span>
+                <div style={{
+                  margin: "0 16px",
+                  background: "rgba(255,5,149,0.2)",
+                  color: "#fff",
+                  padding: "4px 12px",
+                  borderRadius: "8px",
+                  fontWeight: 900,
+                  fontSize: "16px",
+                  fontVariantNumeric: "tabular-nums",
+                  whiteSpace: "nowrap",
+                  border: "1px solid rgba(255,5,149,0.5)",
+                }}>
+                  {scoreText}
+                </div>
+                <span style={{
+                  fontWeight: 900,
+                  fontSize: "14px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  flex: 1,
+                  textAlign: "right",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  color: winner === "B" ? "#facc15" : "#fff",
+                }}>
+                  {getFullTeamName(m.teamB)}
+                </span>
+              </div>
+            );
+          }) : (
+            <div style={{ color: "rgba(255,255,255,0.5)" }}>Nenhum resultado registrado ainda.</div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
