@@ -144,10 +144,26 @@ export default function PresentationMode({
     if (liveState) {
       serving = s.serving;
       const isNoAd = config.matchSettings?.isNoAd ?? true;
-      
+
+      // For non-tiebreak formats (game6, set6, shortset): if pts have values, we're in points mode (show PTS), else games mode (show JOG only)
+      // supertie and active tiebreak always show TB points
+      const isPointsMode = config.durationType !== "supertie" && !s.tb && (s.pts[0] > 0 || s.pts[1] > 0);
+
       const getPt = (pl: 0 | 1) => {
         if (config.durationType === "supertie" || s.tb) return String(s.tbPts[pl]);
-        if (config.durationType === "game6") return String(s.games[pl]);
+        // non-tiebreak formats (game6, set6, shortset)
+        if (config.durationType !== "supertie" && !s.tb) {
+          if (isPointsMode) {
+            const a = s.pts[0], b = s.pts[1];
+            if (a >= 3 && b >= 3 && !isNoAd) {
+              if (a === b) return "40";
+              return s.pts[pl] > s.pts[1 - pl] ? "Ad" : "40";
+            }
+            return PTS_LABELS[Math.min(s.pts[pl], 3)] || "0";
+          }
+          return String(s.games[pl]);
+        }
+        // fallback (should not reach here due to early return)
         const a = s.pts[0], b = s.pts[1];
         if (a >= 3 && b >= 3 && !isNoAd) {
           if (a === b) return "40";
@@ -161,7 +177,9 @@ export default function PresentationMode({
       gamesA = s.games[0];
       gamesB = s.games[1];
       hist = s.hist || [];
-      showPoints = s.pts[0] > 0 || s.pts[1] > 0 || s.tbPts[0] > 0 || s.tbPts[1] > 0 || s.tb;
+      // For non-tiebreak formats in points mode, show both games AND points; in games mode, show only games
+      // For supertie/tiebreak, always show TB points
+      showPoints = isPointsMode || config.durationType === "supertie" || s.tb;
     } else if (hasFinalScore) {
       const scoreAStr = String(data.matchResults[m.globalId].scoreA);
       const scoreBStr = String(data.matchResults[m.globalId].scoreB);

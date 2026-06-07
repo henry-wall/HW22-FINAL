@@ -1,10 +1,17 @@
 import type { EngineMatch } from "../engines/super8Engine";
 import { useTournamentState } from "./useTournamentState";
+import type { AttendanceStatus } from "../types/tournament";
+
+// Re-export for convenience
+export type { AttendanceStatus };
 
 export interface MatchResult {
   scoreA: number | string;
   scoreB: number | string;
 }
+
+// Mapa de presença dos jogadores (índice do jogador -> status)
+export type PlayerAttendance = Record<number, AttendanceStatus>;
 
 // KingQueen uses a more complex structure, but we can unify the base
 export interface TournamentData {
@@ -21,6 +28,7 @@ export interface TournamentData {
   players?: string[];
   couples?: { manName: string; womanName: string }[];
   lastUpdateTime?: number; // Timestamp of the last score update
+  playerAttendance?: PlayerAttendance; // Status de presença dos jogadores
 }
 
 const DEFAULT_DATA: TournamentData = {

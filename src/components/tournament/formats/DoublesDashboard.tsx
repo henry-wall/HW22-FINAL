@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import type { TournamentConfig } from "../../../types/tournament";
 import { useTournamentData } from "../../../hooks/useTournamentData";
+import { useMatchSync } from "../../../hooks/useMatchSync";
 import { generateDoublesSchedule, generateDoublesSeries } from "../../../engines/doublesEngine";
 import type { EngineMatch } from "../../../engines/super8Engine";
 import { formatMatchScore } from "../../../utils/scoreFormatting";
@@ -17,10 +18,23 @@ interface DoublesDashboardProps {
 
 export default function DoublesDashboard({ config, couples, openMatchGlobalId }: DoublesDashboardProps) {
   const { data, updateData, updateField, isLoaded } = useTournamentData(config.id);
+  const { validateScore, updateMatchScore, syncAllResults } = useMatchSync(config.id);
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "operation" | "series" | "standings">("overview");
   const playoffFormat = config.playoffFormat ?? "none";
   const [refereeMatch, setRefereeMatch] = useState<{ match: EngineMatch; court: number } | null>(null);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [syncWarning, setSyncWarning] = useState<string | null>(null);
+
+  // Sync results when tab changes
+  useEffect(() => {
+    if (isLoaded) {
+      const changed = syncAllResults();
+      if (changed) {
+        setSyncWarning("Placares sincronizados automaticamente");
+        setTimeout(() => setSyncWarning(null), 3000);
+      }
+    }
+  }, [activeTab, isLoaded, syncAllResults]);
 
   useEffect(() => {
     if (!openMatchGlobalId || !isLoaded) return;
@@ -59,12 +73,14 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
     }
   }, [isLoaded, config.numPlayers, config.numCourts, config.groupFormat, couples]);
 
-  const handleScoreChange = (globalId: string, scoreA: string, scoreB: string) => {
-    const copy = { ...data.matchResults };
-    if (!copy[globalId]) copy[globalId] = { scoreA: "", scoreB: "" };
-    copy[globalId] = { ...copy[globalId], scoreA, scoreB };
-    updateField("matchResults", copy);
-  };
+  // Handle score change with validation and sync
+  const handleScoreChange = useCallback((globalId: string, scoreA: string, scoreB: string) => {
+    const validation = validateScore(scoreA, scoreB, config.durationType);
+    if (!validation.isValid) {
+      console.warn(`Score validation warning: ${validation.error}`);
+    }
+    updateMatchScore(globalId, scoreA, scoreB, config.durationType);
+  }, [validateScore, updateMatchScore, config.durationType]);
 
   const handleStartOperation = () => {
     const queue = [...data.matches];
@@ -290,6 +306,13 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
         ))}
       </div>
 
+      {/* Sync Warning Banner */}
+      {syncWarning && (
+        <div className="mx-5 mt-2 px-4 py-2 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg text-sm font-medium animate-pulse">
+          ⚡ {syncWarning}
+        </div>
+      )}
+
       <div className="px-5 flex-1 overflow-y-auto pb-10">
         {activeTab === "overview" && (
           <div className="surface-card space-y-4">
@@ -362,17 +385,20 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
         )}
 
         {activeTab === "operation" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full min-h-[500px]">
-            <div className="lg:col-span-2 flex flex-col">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-black text-primary text-lg uppercase tracking-tight flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> Quadras ao Vivo
-                </h3>
-                {data.matchQueue.length > 0 && (
-                  <button onClick={handleCallNextMatches} className="text-xs font-black text-brand-cyan hover:opacity-80 flex items-center gap-1 bg-brand-cyan/5 px-2 py-1 rounded border border-brand-cyan/20">🔔 Chamar Próximas ({data.matchQueue.length})</button>
-                )}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 content-start">
+          <div className="flex flex-col h-full min-h-[500px]">
+            {/* Controls Row - Quadras ao Vivo, Chamar Próximas */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-4 pb-4 border-b border-border-main/50">
+              <h3 className="font-black text-primary text-lg uppercase tracking-tight flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> Quadras ao Vivo
+              </h3>
+              {data.matchQueue.length > 0 && (
+                <button onClick={handleCallNextMatches} className="text-xs font-black text-brand-cyan hover:opacity-80 flex items-center gap-1 bg-brand-cyan/5 px-3 py-1.5 rounded border border-brand-cyan/20">🔔 Chamar Próximas ({data.matchQueue.length})</button>
+              )}
+            </div>
+
+            {/* Live Courts Grid */}
+            <div className="flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {Array.from({ length: config.numCourts }, (_, i) => i + 1).map(c => {
                   const m = data.inProgressMatches[c];
                   return (
@@ -424,11 +450,14 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
                 })}
               </div>
             </div>
-            <div className="flex flex-col border-l border-border-main/50 pl-4">
+
+            {/* Queue Section - Below the courts */}
+            <div className="mt-6 pt-4 border-t border-border-main/50">
               <h3 className="font-black text-primary text-lg mb-3 uppercase tracking-tight flex items-center justify-between">
-                Fila <span className="text-xs bg-brand-pink/10 text-brand-pink px-2 py-0.5 rounded-full">{data.matchQueue.length}</span>
+                Fila de Espera
+                <span className="text-xs bg-brand-pink/10 text-brand-pink px-2 py-0.5 rounded-full">{data.matchQueue.length}</span>
               </h3>
-              <div className="space-y-2 flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[600px]">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
                 {data.matchQueue.map((m, idx) => (
                   <div key={m.globalId} className="bg-surface border border-border-main p-2.5 rounded-xl flex items-center gap-3 group">
                     <span className="text-[10px] font-black text-muted w-5 h-5 flex items-center justify-center bg-page rounded-full shrink-0 group-hover:bg-brand-pink/10 group-hover:text-brand-pink">{idx + 1}</span>
@@ -439,6 +468,11 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
                     </div>
                   </div>
                 ))}
+                {data.matchQueue.length === 0 && (
+                  <div className="col-span-full text-xs text-muted italic text-center py-6 bg-page/30 rounded-2xl border border-dashed border-border-main">
+                    Nenhuma partida na fila.
+                  </div>
+                )}
               </div>
             </div>
           </div>

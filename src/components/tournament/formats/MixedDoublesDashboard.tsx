@@ -1,12 +1,16 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import type { TournamentConfig } from "../../../types/tournament";
 import { useTournamentData } from "../../../hooks/useTournamentData";
+import type { PlayerAttendance } from "../../../hooks/useTournamentData";
+import { useMatchSync } from "../../../hooks/useMatchSync";
 import { generateMixedDoublesSchedule } from "../../../engines/mixedDoublesEngine";
 import type { EngineMatch } from "../../../engines/super8Engine";
 import { sumScore, getMatchWinner } from "../../../utils/rankingUtils";
 import { ScoreInput } from "../ScoreInput";
 import RefereeScoreboard from "../RefereeScoreboard";
 import ShareMatchButton from "../../shared/ShareMatchButton";
+import AttendanceManager from "../AttendanceManager";
+import { reorganizeMatchQueue, matchHasAbsentPlayer } from "../../../utils/attendanceUtils";
 
 interface MixedDoublesDashboardProps {
   config: TournamentConfig;
@@ -16,12 +20,26 @@ interface MixedDoublesDashboardProps {
 
 export default function MixedDoublesDashboard({ config, couples, openMatchGlobalId }: MixedDoublesDashboardProps) {
   const { data, updateData, updateField, isLoaded } = useTournamentData(config.id);
+  const { validateScore, updateMatchScore, syncAllResults } = useMatchSync(config.id);
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "operation" | "standings">("overview");
   const [transferModal, setTransferModal] = useState<{ isOpen: boolean; fromCourt: number | null }>({
     isOpen: false,
     fromCourt: null
   });
   const [refereeMatch, setRefereeMatch] = useState<{ match: EngineMatch; court: number } | null>(null);
+  const [syncWarning, setSyncWarning] = useState<string | null>(null);
+  const [showAttendanceManager, setShowAttendanceManager] = useState(false);
+
+  // Sync results when tab changes
+  useEffect(() => {
+    if (isLoaded) {
+      const changed = syncAllResults();
+      if (changed) {
+        setSyncWarning("Placares sincronizados automaticamente");
+        setTimeout(() => setSyncWarning(null), 3000);
+      }
+    }
+  }, [activeTab, isLoaded, syncAllResults]);
 
   useEffect(() => {
     if (!openMatchGlobalId || !isLoaded) return;
@@ -54,12 +72,17 @@ export default function MixedDoublesDashboard({ config, couples, openMatchGlobal
     }
   }, [isLoaded, config.numPlayers, config.numCourts, config.groupFormat, couples]);
 
-  const handleScoreChange = (globalId: string, scoreA: string, scoreB: string) => {
-    const copy = { ...data.matchResults };
-    if (!copy[globalId]) copy[globalId] = { scoreA: "", scoreB: "" };
-    copy[globalId] = { ...copy[globalId], scoreA, scoreB };
-    updateField("matchResults", copy);
-  };
+  // Handle score change with validation and sync
+  const handleScoreChange = useCallback((globalId: string, scoreA: string, scoreB: string) => {
+    // Validate before updating
+    const validation = validateScore(scoreA, scoreB, config.durationType);
+    if (!validation.isValid) {
+      console.warn(`Score validation warning: ${validation.error}`);
+    }
+    
+    // Use sync mechanism to update
+    updateMatchScore(globalId, scoreA, scoreB, config.durationType);
+  }, [validateScore, updateMatchScore, config.durationType]);
 
   const isGame6ScoreValid = (scoreA: string | number, scoreB: string | number): boolean => {
     const gamesPerSet = config.durationType === "game6" ? 7 : 6;
@@ -205,6 +228,27 @@ export default function MixedDoublesDashboard({ config, couples, openMatchGlobal
     }
     return freeCourts;
   };
+
+  // Attendance management
+  const handleAttendanceChange = (attendance: PlayerAttendance) => {
+    updateData({
+      ...data,
+      playerAttendance: attendance
+    });
+  };
+
+  const handleReorderMatches = () => {
+    const { reorderedQueue } = reorganizeMatchQueue(data.matchQueue, data.playerAttendance);
+    updateData({
+      ...data,
+      matchQueue: reorderedQueue
+    });
+  };
+
+  // Check if queue has matches with absent players
+  const hasAbsentPlayersInQueue = useMemo(() => {
+    return data.matchQueue.some(m => matchHasAbsentPlayer(m, data.playerAttendance));
+  }, [data.matchQueue, data.playerAttendance]);
 
   const ranking = useMemo(() => {
     const wins = Array(config.numPlayers).fill(0);
@@ -448,6 +492,13 @@ export default function MixedDoublesDashboard({ config, couples, openMatchGlobal
         ))}
       </div>
 
+      {/* Sync Warning Banner */}
+      {syncWarning && (
+        <div className="mx-5 mt-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-600 dark:text-amber-400 text-sm font-medium animate-pulse">
+          ⚡ {syncWarning}
+        </div>
+      )}
+
       <div className="px-5 flex-1 overflow-y-auto pb-10">
         
         {activeTab === "overview" && (
@@ -508,30 +559,43 @@ export default function MixedDoublesDashboard({ config, couples, openMatchGlobal
         )}
 
         {activeTab === "operation" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full min-h-[500px]">
-            {/* Live Courts Column */}
-            <div className="lg:col-span-2 flex flex-col">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-black text-primary text-lg uppercase tracking-tight flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-                  Quadras ao Vivo
-                </h3>
+          <div className="flex flex-col h-full min-h-[500px]">
+            {/* Controls Row - Quadras ao Vivo, Presenças, Chamar Próximas */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-4 pb-4 border-b border-border-main/50">
+              <h3 className="font-black text-primary text-lg uppercase tracking-tight flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                Quadras ao Vivo
+              </h3>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setShowAttendanceManager(true)}
+                  className={`text-xs font-black flex items-center gap-1 px-3 py-1.5 rounded border transition-all ${
+                    hasAbsentPlayersInQueue 
+                      ? "bg-amber-500/10 text-amber-500 border-amber-500/30 hover:bg-amber-500/20"
+                      : "bg-surface text-muted border-border-main hover:text-primary hover:border-brand-pink/50"
+                  }`}
+                >
+                  👥 Presenças {hasAbsentPlayersInQueue && "⚠️"}
+                </button>
                 {data.matchQueue.length > 0 && (
                   <button 
                     onClick={handleCallNextMatches}
-                    className="text-xs font-black text-brand-cyan hover:opacity-80 flex items-center gap-1 bg-brand-cyan/5 px-2 py-1 rounded border border-brand-cyan/20"
+                    className="text-xs font-black text-brand-cyan hover:opacity-80 flex items-center gap-1 bg-brand-cyan/5 px-3 py-1.5 rounded border border-brand-cyan/20"
                   >
                     🔔 Chamar Próximas ({data.matchQueue.length})
                   </button>
                 )}
               </div>
-              
+            </div>
+
+            {/* Live Courts Grid */}
+            <div className="flex-1">
               {data.status === "planning" ? (
                 <div className="text-center text-muted py-12 surface-card border-dashed">
                   O torneio ainda não foi iniciado. Vá na Visão Geral para iniciar.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 content-start">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {Array.from({ length: config.numCourts }, (_, i) => i + 1).map(c => {
                     const m = data.inProgressMatches[c];
                     return (
@@ -606,13 +670,13 @@ export default function MixedDoublesDashboard({ config, couples, openMatchGlobal
               )}
             </div>
 
-            {/* Queue Column */}
-            <div className="flex flex-col border-l border-border-main/50 pl-4">
+            {/* Queue Section - Below the courts */}
+            <div className="mt-6 pt-4 border-t border-border-main/50">
               <h3 className="font-black text-primary text-lg mb-3 uppercase tracking-tight flex items-center justify-between">
                 Fila de Espera
                 <span className="text-xs bg-brand-pink/10 text-brand-pink px-2 py-0.5 rounded-full">{data.matchQueue.length}</span>
               </h3>
-              <div className="space-y-2 flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[600px]">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
                 {data.matchQueue.map((m, idx) => (
                   <div key={m.globalId} className="bg-surface border border-border-main p-2.5 rounded-xl flex items-center gap-3 transition-all hover:border-brand-pink/30 group">
                     <span className="text-[10px] font-black text-muted w-5 h-5 flex items-center justify-center bg-page rounded-full shrink-0 group-hover:bg-brand-pink/10 group-hover:text-brand-pink">{idx + 1}</span>
@@ -628,7 +692,7 @@ export default function MixedDoublesDashboard({ config, couples, openMatchGlobal
                   </div>
                 ))}
                 {data.matchQueue.length === 0 && (
-                  <div className="text-xs text-muted italic text-center py-10 bg-page/30 rounded-2xl border border-dashed border-border-main">
+                  <div className="col-span-full text-xs text-muted italic text-center py-6 bg-page/30 rounded-2xl border border-dashed border-border-main">
                     Nenhuma partida na fila.
                   </div>
                 )}
@@ -786,6 +850,20 @@ export default function MixedDoublesDashboard({ config, couples, openMatchGlobal
             </button>
           </div>
         </div>
+      )}
+
+      {/* Attendance Manager Modal */}
+      {showAttendanceManager && (
+        <AttendanceManager
+          players={[]}
+          couples={couples}
+          isDoubles={true}
+          attendance={data.playerAttendance}
+          matchQueue={data.matchQueue}
+          onAttendanceChange={handleAttendanceChange}
+          onReorderMatches={handleReorderMatches}
+          onClose={() => setShowAttendanceManager(false)}
+        />
       )}
     </div>
   );

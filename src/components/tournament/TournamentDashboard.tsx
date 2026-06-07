@@ -12,7 +12,7 @@ import { calculateMixedDoublesRanking, calculateSuper8Ranking, calculateKingQuee
 import type { RankingItem } from "../../utils/rankingUtils";
 import { shareStandingsToWhatsApp } from "../../utils/shareUtils";
 import { exportRankingToCSV } from "../../utils/csvExport";
-import { getTieBreakTrigger } from "../../utils/matchSettingsUtils";
+import { getTieBreakTrigger, getDefaultMatchSettings } from "../../utils/matchSettingsUtils";
 import type { MatchSettings } from "../../types/tournament";
 
 interface TournamentDashboardProps {
@@ -68,6 +68,8 @@ export default function TournamentDashboard({
   const [editingPlayers, setEditingPlayers] = useState<any[]>([]);
   const [showChampion, setShowChampion] = useState(false);
   const [championShown, setChampionShown] = useState(false);
+  const [playersExpanded, setPlayersExpanded] = useState(false);
+  const [configExpanded, setConfigExpanded] = useState(false);
   const { data } = useTournamentData(config.id);
 
   useEffect(() => {
@@ -114,18 +116,6 @@ export default function TournamentDashboard({
     const norm = name?.trim().toLowerCase();
     return norm ? duplicateEditingNames.has(norm) : false;
   };
-
-  const duplicateEditingOrigNames = useMemo(() => {
-    if (duplicateEditingNames.size === 0) return [];
-    const allNames = usesCouples
-      ? (editingPlayers as { manName: string; womanName: string }[]).flatMap(c => [c?.manName || "", c?.womanName || ""])
-      : (editingPlayers as string[]);
-    const filtered = allNames.filter(name => {
-      const norm = name?.trim().toLowerCase();
-      return norm && duplicateEditingNames.has(norm);
-    });
-    return Array.from(new Set(filtered.map(n => n.trim())));
-  }, [editingPlayers, duplicateEditingNames, usesCouples]);
 
   const globalRanking = useMemo(() => {
     if (!data) return [];
@@ -260,7 +250,27 @@ export default function TournamentDashboard({
       </div>
 
       <div className="px-5 pt-4">
-        <div className="flex justify-between items-center mb-2">
+        {/* Mobile Collapsible Config Button with Edit */}
+        <button 
+          onClick={() => setConfigExpanded(!configExpanded)}
+          className="w-full lg:hidden surface-card p-3 mb-4 flex justify-between items-center border border-brand-cyan/20 hover:border-brand-cyan/40 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⚙️</span>
+            <span className="text-xs font-black text-primary uppercase tracking-wider">Configurações</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-muted hidden sm:inline">
+              {durationLabels[config.durationType]} · {config.matchSettings?.bestOf || 1} set(s)
+            </span>
+            <span className={`text-brand-cyan transition-transform ${configExpanded ? 'rotate-180' : ''}`}>
+              ▼
+            </span>
+          </div>
+        </button>
+
+        {/* Desktop Config Header */}
+        <div className="hidden lg:flex justify-between items-center mb-2">
           <h2 className="text-[10px] font-bold text-muted uppercase tracking-widest">Configurações</h2>
           <button 
             onClick={() => setIsEditingConfig(!isEditingConfig)}
@@ -270,7 +280,19 @@ export default function TournamentDashboard({
           </button>
         </div>
 
-        {isEditingConfig ? (
+        {/* Collapsible Config Content */}
+        <div className={`lg:block ${configExpanded ? 'block' : 'hidden'}`}>
+          {/* Mobile Edit Button for Config */}
+          <div className="lg:hidden mb-3 flex justify-end">
+            <button 
+              onClick={() => setIsEditingConfig(!isEditingConfig)}
+              className="text-[10px] font-black text-brand-cyan uppercase hover:opacity-70 flex items-center gap-1.5 px-3 py-1.5 bg-brand-cyan/10 rounded-lg border border-brand-cyan/20"
+            >
+              {isEditingConfig ? "Fechar" : "✏️ Editar"}
+            </button>
+          </div>
+
+          {isEditingConfig ? (
           <div className="surface-card mb-5 animate-fade-in border-brand-cyan/30 p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               
@@ -278,10 +300,18 @@ export default function TournamentDashboard({
               <div className="space-y-4">
                 <div>
                   <label className="text-[10px] font-black text-muted uppercase mb-1.5 block tracking-widest">Formato Geral</label>
-                  <select 
+                  <select
                     className="input-dark w-full h-10 text-xs font-bold"
                     value={config.durationType}
-                    onChange={(e) => onUpdateTournament({ durationType: e.target.value as any })}
+                    onChange={(e) => {
+                      const newDurationType = e.target.value as any;
+                      // Auto-recalculate matchSettings when durationType changes
+                      const newMatchSettings = getDefaultMatchSettings(newDurationType);
+                      onUpdateTournament({
+                        durationType: newDurationType,
+                        matchSettings: newMatchSettings
+                      });
+                    }}
                   >
                     <option value="set6">Set 6 games</option>
                     <option value="shortset">Short Set</option>
@@ -399,117 +429,137 @@ export default function TournamentDashboard({
             ))}
           </div>
         )}
+
+        {/* Players List inside Config (always visible on desktop, inside collapsible on mobile) */}
+        <div className="surface-card p-4 flex flex-col min-h-0 mt-4">
+            {/* Mobile Collapsible Header for Players */}
+            <button 
+              onClick={() => setPlayersExpanded(!playersExpanded)}
+              className="w-full lg:hidden flex justify-between items-center mb-3"
+            >
+              <h2 className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">Jogadores Inscritos</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] text-muted">
+                  {usesCouples ? `${couples.length} casais` : `${players.length} jogadores`}
+                </span>
+                <span className={`text-brand-pink transition-transform ${playersExpanded ? 'rotate-180' : ''}`}>
+                  ▼
+                </span>
+              </div>
+            </button>
+
+            {/* Mobile Edit Button */}
+            <div className="lg:hidden mb-3 flex justify-end">
+              <button 
+                onClick={() => isEditingPlayers ? handleSavePlayers() : setIsEditingPlayers(true)}
+                disabled={isEditingPlayers && duplicateEditingNames.size > 0}
+                className="text-[10px] font-black text-brand-pink uppercase hover:opacity-70 flex items-center gap-1.5 px-3 py-1.5 bg-brand-pink/10 rounded-lg border border-brand-pink/20 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                {isEditingPlayers ? "💾 Salvar" : "✏️ Editar"}
+              </button>
+            </div>
+
+            {/* Desktop Header */}
+            <div className="hidden lg:flex justify-between items-center mb-3">
+              <h2 className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">Jogadores Inscritos</h2>
+              <button 
+                onClick={() => isEditingPlayers ? handleSavePlayers() : setIsEditingPlayers(true)}
+                disabled={isEditingPlayers && duplicateEditingNames.size > 0}
+                className="text-[10px] font-black text-brand-pink uppercase hover:opacity-70 flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                {isEditingPlayers ? "💾 Salvar" : "✏️ Editar"}
+              </button>
+            </div>
+
+            {/* Players Content - Collapsible on mobile */}
+            <div className={`overflow-y-auto custom-scrollbar max-h-[180px] pr-2 ${playersExpanded ? 'block' : 'hidden lg:block'}`}>
+              {isEditingPlayers ? (
+                usesCouples ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                    {editingPlayers.map((c, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-page p-1.5 rounded-lg border border-border-main shadow-sm">
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 bg-brand-pink/10 text-brand-pink">
+                          {i + 1}
+                        </span>
+                        <div className="flex flex-col gap-1 flex-1">
+                          <input 
+                            className={`input-dark h-6 text-[10px] ${isEditingDuplicate(c.manName) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`} 
+                            value={c.manName} 
+                            onChange={e => {
+                              const newArr = [...editingPlayers];
+                              newArr[i].manName = e.target.value;
+                              setEditingPlayers(newArr);
+                            }} 
+                            placeholder={isMixed ? "Ele" : "Parceiro 1"} 
+                          />
+                          <input 
+                            className={`input-dark h-6 text-[10px] ${isEditingDuplicate(c.womanName) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`} 
+                            value={c.womanName} 
+                            onChange={e => {
+                              const newArr = [...editingPlayers];
+                              newArr[i].womanName = e.target.value;
+                              setEditingPlayers(newArr);
+                            }} 
+                            placeholder={isMixed ? "Ela" : "Parceiro 2"} 
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-1.5">
+                    {editingPlayers.map((p, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-page p-1.5 rounded-lg border border-border-main shadow-sm">
+                        <span className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 bg-brand-pink text-brand-cyan">
+                          {i + 1}
+                        </span>
+                        <input 
+                          className={`input-dark flex-1 h-7 text-[11px] ${isEditingDuplicate(p) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`} 
+                          value={p} 
+                          onChange={e => {
+                            const newArr = [...editingPlayers];
+                            newArr[i] = e.target.value;
+                            setEditingPlayers(newArr);
+                          }} 
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                usesCouples ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
+                    {couples.map((c, i) => (
+                      <div key={i} className="bg-page/50 p-1.5 rounded-lg border border-border-main/50 flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black bg-brand-pink text-white shrink-0">
+                          {i + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black text-primary truncate leading-tight uppercase">{c.manName}</p>
+                          <p className="text-[10px] font-black text-brand-pink truncate leading-tight uppercase">{c.womanName}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-1.5">
+                    {players.map((p, i) => (
+                      <div key={i} className="bg-page/50 p-1.5 rounded-lg border border-border-main/50 flex items-center gap-2">
+                        <span className="w-4 h-4 rounded-md flex items-center justify-center text-[9px] font-black bg-brand-pink text-brand-cyan shrink-0">
+                          {i + 1}
+                        </span>
+                        <span className="text-[10px] font-black text-primary truncate uppercase">{p}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
+        </div>
       </div>
 
-        {/* Top Section: Players & Ranking Grid */}
+      {/* Top Section: Ranking Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 px-5 mb-4">
-        {/* Players List (Take 3/4 space) */}
-        <div className="lg:col-span-3 surface-card p-4 flex flex-col min-h-0">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-[10px] font-black text-muted uppercase tracking-[0.2em]">Jogadores Inscritos</h2>
-            <button 
-              onClick={() => isEditingPlayers ? handleSavePlayers() : setIsEditingPlayers(true)}
-              disabled={isEditingPlayers && duplicateEditingNames.size > 0}
-              className="text-[10px] font-black text-brand-cyan uppercase hover:opacity-70 flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              {isEditingPlayers ? "💾 Salvar" : "✏️ Editar"}
-            </button>
-          </div>
-          
-          {isEditingPlayers && duplicateEditingNames.size > 0 && (
-            <div className="p-2 mb-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 text-[10px] font-bold animate-fade-in flex items-center gap-1.5">
-              <span>⚠️</span>
-              <span>
-                Nomes duplicados: {duplicateEditingOrigNames.map(n => `"${n}"`).join(", ")}. Forneça nomes únicos para salvar.
-              </span>
-            </div>
-          )}
-
-          <div className="overflow-y-auto custom-scrollbar max-h-[180px] pr-2">
-            {isEditingPlayers ? (
-              usesCouples ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-                  {editingPlayers.map((c, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-page p-1.5 rounded-lg border border-border-main shadow-sm">
-                      <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 bg-brand-pink/10 text-brand-pink">
-                        {i + 1}
-                      </span>
-                      <div className="flex flex-col gap-1 flex-1">
-                        <input 
-                          className={`input-dark h-6 text-[10px] ${isEditingDuplicate(c.manName) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`} 
-                          value={c.manName} 
-                          onChange={e => {
-                            const newArr = [...editingPlayers];
-                            newArr[i].manName = e.target.value;
-                            setEditingPlayers(newArr);
-                          }} 
-                          placeholder={isMixed ? "Ele" : "Parceiro 1"} 
-                        />
-                        <input 
-                          className={`input-dark h-6 text-[10px] ${isEditingDuplicate(c.womanName) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`} 
-                          value={c.womanName} 
-                          onChange={e => {
-                            const newArr = [...editingPlayers];
-                            newArr[i].womanName = e.target.value;
-                            setEditingPlayers(newArr);
-                          }} 
-                          placeholder={isMixed ? "Ela" : "Parceiro 2"} 
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-1.5">
-                  {editingPlayers.map((p, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-page p-1.5 rounded-lg border border-border-main shadow-sm">
-                      <span className="w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 bg-brand-pink text-brand-cyan">
-                        {i + 1}
-                      </span>
-                      <input 
-                        className={`input-dark flex-1 h-7 text-[11px] ${isEditingDuplicate(p) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500/20" : ""}`} 
-                        value={p} 
-                        onChange={e => {
-                          const newArr = [...editingPlayers];
-                          newArr[i] = e.target.value;
-                          setEditingPlayers(newArr);
-                        }} 
-                      />
-                    </div>
-                  ))}
-                </div>
-              )
-            ) : (
-              usesCouples ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
-                  {couples.map((c, i) => (
-                    <div key={i} className="bg-page/50 p-1.5 rounded-lg border border-border-main/50 flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black bg-brand-pink text-white shrink-0">
-                        {i + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-black text-primary truncate leading-tight uppercase">{c.manName}</p>
-                        <p className="text-[10px] font-black text-brand-pink truncate leading-tight uppercase">{c.womanName}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-1.5">
-                  {players.map((p, i) => (
-                    <div key={i} className="bg-page/50 p-1.5 rounded-lg border border-border-main/50 flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-md flex items-center justify-center text-[9px] font-black bg-brand-pink text-brand-cyan shrink-0">
-                        {i + 1}
-                      </span>
-                      <span className="text-[10px] font-black text-primary truncate uppercase">{p}</span>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
-          </div>
-        </div>
-
         {/* General Ranking Sidebar (Take 1/4 space) */}
         <div className="lg:col-span-1 surface-card p-4 flex flex-col min-h-0">
           <div className="flex justify-between items-center mb-3">
@@ -581,6 +631,7 @@ export default function TournamentDashboard({
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 }

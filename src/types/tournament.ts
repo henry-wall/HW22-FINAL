@@ -11,6 +11,9 @@ export type TournamentGroupFormat = "single" | "groups";
 export type PlayoffFormat = "none" | "series" | "knockout";
 export type ViewMode = "planning" | "operation" | "presentation";
 
+// Status de presença do atleta
+export type AttendanceStatus = "present" | "absent" | "late";
+
 export interface MatchSettings {
   bestOf: 1 | 3 | 5;
   gamesPerSet: 0 | 4 | 6 | 7 | 8;

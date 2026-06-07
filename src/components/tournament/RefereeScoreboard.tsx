@@ -89,6 +89,10 @@ export default function RefereeScoreboard({
   });
   const [undoStack, setUndoStack] = useState<ScoreState[]>([]);
 
+  // Scoring mode: 'points' (15/30/40/Ad) or 'games' (only game wins)
+  // Games mode is default for all formats; points mode disabled in tie-break formats
+  const [scoringMode, setScoringMode] = useState<'points' | 'games'>('games');
+
   // Timer
   const [secs, setSecs] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
@@ -152,19 +156,52 @@ export default function RefereeScoreboard({
       const isSuperTie = durationType === "supertie";
 
       // ── Game6 format: play exactly 7 games total, higher score wins ──
+      // No early termination — all 7 games are played regardless of score
       if (isGame6) {
-        nx.games[player]++;
-        nx.totalGames++;
-        nx.serving = (1 - nx.serving) as 0 | 1;
+        // In points mode: play points (15/30/40/Ad) to win games
+        // In games mode: directly increment game count
+        if (scoringMode === 'points') {
+          // Normal tennis point progression
+          const p = nx.pts;
+          const a = p[player], b = p[op];
+          let gameWon: 0 | 1 | null = null;
 
-        if (nx.totalGames >= 7) {
-          nx.over = true;
-          nx.winner = nx.games[0] > nx.games[1] ? 0 : nx.games[1] > nx.games[0] ? 1 : null;
-        }
-        const remaining = Math.max(0, 7 - nx.totalGames);
-        if (nx.games[player] > nx.games[op] + remaining) {
-          nx.over = true;
-          nx.winner = player;
+          if (settings.isNoAd) {
+            // No Ad: 40-40 (3-3) → next point wins
+            p[player]++;
+            if (p[player] >= 4) gameWon = player;
+          } else {
+            if (a >= 3 && b >= 3) {
+              if (a > b) gameWon = player;
+              else if (a < b) { p[0] = 3; p[1] = 3; }
+              else p[player] = 4;
+            } else {
+              p[player]++;
+              if (p[player] >= 4) gameWon = player;
+            }
+          }
+
+          if (gameWon !== null) {
+            nx.games[gameWon]++;
+            nx.totalGames++;
+            nx.pts = [0, 0];
+            nx.serving = (1 - nx.serving) as 0 | 1;
+
+            if (nx.totalGames >= 7) {
+              nx.over = true;
+              nx.winner = nx.games[0] > nx.games[1] ? 0 : nx.games[1] > nx.games[0] ? 1 : null;
+            }
+          }
+        } else {
+          // Games mode: directly increment game count
+          nx.games[player]++;
+          nx.totalGames++;
+          nx.serving = (1 - nx.serving) as 0 | 1;
+
+          if (nx.totalGames >= 7) {
+            nx.over = true;
+            nx.winner = nx.games[0] > nx.games[1] ? 0 : nx.games[1] > nx.games[0] ? 1 : null;
+          }
         }
         return nx;
       }
@@ -218,7 +255,39 @@ export default function RefereeScoreboard({
         return nx;
       }
 
-      // ── Normal game point ──
+      // ── Games-only mode: increment game directly, skip points ──
+      if (scoringMode === 'games') {
+        nx.games[player]++;
+        nx.serving = (1 - nx.serving) as 0 | 1;
+
+        const gW = nx.games[player], gL = nx.games[op];
+
+        // Check for set win
+        if (gW >= settings.gamesPerSet && (gW - gL >= 2 || !settings.hasTieBreak)) {
+          if (!settings.hasTieBreak || gW - gL >= 2) {
+            nx.sets[player]++;
+            nx.hist.push([...nx.games] as [number, number]);
+            nx.games = [0, 0];
+            nx.serving = op;
+            const setsToWin = Math.ceil(settings.bestOf / 2);
+            if (nx.sets[player] >= setsToWin) { 
+              nx.over = true; 
+              nx.winner = player; 
+            } else if (settings.superTieLastSet && (nx.sets[0] + nx.sets[1] === settings.bestOf - 1)) {
+              // Start Super Tie-break for the last set
+              nx.tb = true;
+              nx.tbPts = [0, 0];
+            }
+          }
+        } else if (settings.hasTieBreak && nx.games[0] === settings.tbTrigger && nx.games[1] === settings.tbTrigger) {
+          // Trigger tiebreak
+          nx.tb = true;
+          nx.tbPts = [0, 0];
+        }
+        return nx;
+      }
+
+      // ── Normal game point (points mode) ──
       const p = nx.pts;
       const a = p[player], b = p[op];
       let gameWon: 0 | 1 | null = null;
@@ -274,7 +343,7 @@ export default function RefereeScoreboard({
 
       return nx;
     });
-  }, [s, settings, durationType]);
+  }, [s, settings, durationType, scoringMode]);
 
   const undo = useCallback(() => {
     if (undoStack.length === 0) return;
@@ -283,10 +352,34 @@ export default function RefereeScoreboard({
     setUndoStack(stack => stack.slice(0, -1));
   }, [undoStack]);
 
+  // Toggle server by clicking on the serving indicator ball
+  const toggleServer = useCallback((player: 0 | 1) => {
+    if (s.over) return;
+    setUndoStack(prev => {
+      const next = [...prev, JSON.parse(JSON.stringify(s)) as ScoreState];
+      if (next.length > 40) next.shift();
+      return next;
+    });
+    setS(prev => ({ ...prev, serving: player }));
+  }, [s]);
+
   // ── Labels ──────────────────────────────────────────────────────
   function ptLabel(player: 0 | 1): string {
+    // In games mode, show current game count
+    if (scoringMode === 'games') {
+      return String(s.games[player]);
+    }
+    // Tie-break formats always show points
     if (durationType === "supertie" || s.tb) return String(s.tbPts[player]);
-    if (durationType === "game6") return String(s.games[player]);
+    // game6 in points mode shows 15/30/40/Ad
+    if (durationType === "game6") {
+      const [a, b] = s.pts;
+      if (a >= 3 && b >= 3 && !settings.isNoAd) {
+        if (a === b) return "40";
+        return s.pts[player] > s.pts[1 - player] ? "Ad" : "40";
+      }
+      return PTS_LABELS[Math.min(s.pts[player], 3)];
+    }
     const [a, b] = s.pts;
     if (a >= 3 && b >= 3 && !settings.isNoAd) {
       if (a === b) return "40";
@@ -295,9 +388,9 @@ export default function RefereeScoreboard({
     return PTS_LABELS[Math.min(s.pts[player], 3)];
   }
 
-  const deuce = !s.tb && durationType !== "supertie" && durationType !== "game6" && !settings.isNoAd && s.pts[0] === 3 && s.pts[1] === 3;
+  const deuce = !s.tb && durationType !== "supertie" && !settings.isNoAd && s.pts[0] === 3 && s.pts[1] === 3;
   const adv = (() => {
-    if (s.tb || durationType === "supertie" || durationType === "game6" || settings.isNoAd) return null;
+    if (s.tb || durationType === "supertie" || settings.isNoAd) return null;
     if (s.pts[0] > s.pts[1] && s.pts[0] >= 4) return 0;
     if (s.pts[1] > s.pts[0] && s.pts[1] >= 4) return 1;
     return null;
@@ -306,12 +399,15 @@ export default function RefereeScoreboard({
   const shortA = teamAName.split(" ")[0];
   const shortB = teamBName.split(" ")[0];
 
-  const statusText = deuce ? "🔁 DEUCE"
+  const statusText = scoringMode === 'games'
+    ? durationType === "game6"
+      ? `🎾 ${s.totalGames}/7 GAMES`
+      : ""
+    : deuce ? "🔁 DEUCE"
     : adv === 0 ? `⭐ VANT. ${shortA}`
     : adv === 1 ? `⭐ VANT. ${shortB}`
     : s.tb ? "⚡ TIEBREAK"
     : durationType === "supertie" ? "⚡ SUPER TIE"
-    : durationType === "game6" ? `🎾 ${s.totalGames}/7 GAMES`
     : "";
 
   const mm = String(Math.floor(secs / 60)).padStart(2, "0");
@@ -407,10 +503,10 @@ export default function RefereeScoreboard({
       style={{ background: "#08080f", color: "#fff" }}>
 
       {/* Top bar: timer + undo + settings */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5 shrink-0">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={onExit} className="text-white/30 text-sm bg-transparent border-none">← Sair</button>
-          <button onClick={() => setShowSettings(true)} className="text-white/30 hover:text-white transition-colors">
+          <button onClick={onExit} className="text-white/70 hover:text-white text-sm bg-transparent border-none transition-colors">← Sair</button>
+          <button onClick={() => setShowSettings(true)} className="text-white/70 hover:text-brand-cyan transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
           </button>
           {matchGlobalId && tournamentId && (
@@ -418,16 +514,43 @@ export default function RefereeScoreboard({
           )}
         </div>
         <div className="flex items-center gap-3">
-          <span className={`text-xl font-black tabular-nums tracking-wide ${timerRunning ? "text-green-400" : "text-white/25"}`}>
+          <span className={`text-xl font-black tabular-nums tracking-wide ${timerRunning ? "text-green-400" : "text-white/90"}`}>
             {mm}:{ss2}
           </span>
           <button onClick={() => setTimerRunning(r => !r)}
-            className={`px-3 py-1 rounded-lg text-xs font-bold border-none ${timerRunning ? "bg-red-500/15 text-red-400" : "bg-green-500/15 text-green-400"}`}>
+            className={`px-3 py-1 rounded-lg text-xs font-bold border-none ${timerRunning ? "bg-red-500/20 text-red-300" : "bg-green-500/20 text-green-300"}`}>
             {timerRunning ? "⏸ Parar" : "▶ Iniciar"}
           </button>
         </div>
+        
+        {/* Scoring Mode Toggle - Button with Text */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              // Check if we're in a tie-break format where points mode is not allowed
+              // Super Tie and active tiebreak don't allow points mode, but game6 (Até 7 games) does
+              const isTieBreakFormat = durationType === "supertie" || s.tb;
+              if (isTieBreakFormat && scoringMode === 'games') {
+                alert("Modo 'Pontos' não disponível em formatos de Tie-Break (Super Tie ou Tiebreak ativo).");
+                return;
+              }
+              setScoringMode(prev => prev === 'points' ? 'games' : 'points');
+            }}
+            className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-2 focus:ring-offset-black ${
+              scoringMode === 'points'
+                ? 'bg-brand-cyan text-black'
+                : 'bg-brand-pink text-white'
+            }`}
+            aria-pressed={scoringMode === 'points'}
+            aria-label={scoringMode === 'points' ? "Modo: Pontos (15/30/40/Ad)" : "Modo: Games (apenas vitórias de game)"}
+            title={scoringMode === 'points' ? "Modo: Pontos (15/30/40/Ad)" : "Modo: Games (apenas vitórias de game)"}
+          >
+            {scoringMode === 'points' ? 'Pontos' : 'Games'}
+          </button>
+        </div>
+        
         <button onClick={undo}
-          className={`text-sm font-bold bg-transparent border-none ${undoStack.length > 0 ? "text-yellow-400" : "text-white/10"}`}>
+          className={`text-sm font-bold bg-transparent border-none ${undoStack.length > 0 ? "text-yellow-300" : "text-white/40"}`}>
           ↩ Desfazer
         </button>
       </div>
@@ -453,19 +576,23 @@ export default function RefereeScoreboard({
 
       {/* Scoreboard table */}
       <div className="px-3.5 py-2 shrink-0">
-        <div className="rounded-2xl overflow-hidden border border-white/5" style={{ background: "#12121e" }}>
+        <div className="rounded-2xl overflow-hidden border border-white/10" style={{ background: "#12121e" }}>
           {/* Header row */}
-          <div className="flex px-4 py-1.5 border-b border-white/5">
-            <div className="flex-1 text-[10px] font-bold text-white/20 uppercase tracking-wider">Equipe</div>
+          <div className="flex px-4 py-1.5 border-b border-white/10">
+            <div className="flex-1 text-[10px] font-bold text-white/60 uppercase tracking-wider">Equipe</div>
             {s.hist.map((_, i) => (
-              <div key={i} className="w-9 text-center text-[10px] font-bold text-white/20 uppercase">S{i + 1}</div>
+              <div key={i} className="w-9 text-center text-[10px] font-bold text-white/60 uppercase">S{i + 1}</div>
             ))}
-            {!isSuperTie && durationType !== "game6" && (
-              <div className="w-14 text-center text-[10px] font-bold text-white/20 uppercase">JOG</div>
+            {/* JOG column: show for all formats except supertie (which has no games in sets) */}
+            {!isSuperTie && (
+              <div className="w-14 text-center text-[10px] font-bold text-white/60 uppercase">JOG</div>
             )}
-            <div className="w-16 text-center text-[10px] font-bold text-white/20 uppercase">
-              {s.tb || isSuperTie ? "TB" : durationType === "game6" ? "GAM" : "PTS"}
-            </div>
+            {/* Main score column: hide only in games mode for non-tiebreak formats (game6, set6, shortset) */}
+            {!isSuperTie && !(scoringMode === 'games' && !s.tb) && (
+              <div className="w-16 text-center text-[10px] font-bold text-white/60 uppercase">
+                {scoringMode === 'games' ? "GAM" : (s.tb ? "TB" : "PTS")}
+              </div>
+            )}
           </div>
 
           {/* Team rows */}
@@ -482,43 +609,51 @@ export default function RefereeScoreboard({
               return s.pts[pl] > s.pts[1 - pl];
             })();
 
-            const ptsColor = deuce ? "text-yellow-400"
-              : adv === pl ? "text-yellow-400"
-              : leading ? "text-green-400"
-              : "text-white/80";
+            const ptsColor = deuce ? "text-yellow-300"
+              : adv === pl ? "text-yellow-300"
+              : leading ? "text-green-300"
+              : "text-white/90";
 
             return (
               <div key={pl}
-                className={`flex items-center px-4 py-3 transition-colors duration-200 ${pl === 1 ? "border-t border-white/5" : ""} ${leading ? "bg-green-400/[0.03]" : ""}`}>
+                className={`flex items-center px-4 py-3 transition-colors duration-200 ${pl === 1 ? "border-t border-white/10" : ""} ${leading ? "bg-green-400/[0.05]" : ""}`}>
                 {/* Name + serving indicator */}
                 <div className="flex-1 flex items-center gap-2 min-w-0">
-                  <div className={`w-2 h-2 rounded-full shrink-0 transition-all duration-300 ${isServing ? "bg-yellow-400 shadow-[0_0_8px_#facc15]" : "bg-white/5"}`} />
-                  <span className={`font-bold text-sm truncate ${leading ? "text-white" : "text-white/50"}`}>{name}</span>
+                  <button
+                    onClick={() => toggleServer(pl)}
+                    className={`w-2 h-2 rounded-full shrink-0 transition-all duration-300 cursor-pointer hover:scale-125 ${isServing ? "bg-yellow-300 shadow-[0_0_10px_#fde047]" : "bg-white/20 hover:bg-white/40"}`}
+                    aria-label={isServing ? `${name} está sacando (clique para mudar)` : `${name} não está sacando (clique para sacar)`}
+                    title={isServing ? `${name} está sacando` : `${name} não está sacando`}
+                    disabled={s.over}
+                  />
+                  <span className={`font-bold text-sm truncate ${leading ? "text-white" : "text-white/80"}`}>{name}</span>
                 </div>
                 {/* Set history */}
                 {s.hist.map((sh, i) => (
-                  <div key={i} className={`w-9 text-center text-xl font-black ${sh[pl] > sh[1 - pl] ? "text-green-400" : "text-white/20"}`}>
+                  <div key={i} className={`w-9 text-center text-xl font-black ${sh[pl] > sh[1 - pl] ? "text-green-300" : "text-white/40"}`}>
                     {sh[pl]}
                   </div>
                 ))}
-                {/* Current games */}
-                {!isSuperTie && !isGame6 && (
-                  <div className={`w-14 text-center text-2xl font-black ${leading ? "text-green-400" : "text-white/60"}`}>
+                {/* JOG column: show for all non-supertie formats */}
+                {!isSuperTie && (
+                  <div className={`w-14 text-center text-2xl font-black ${leading ? "text-green-300" : "text-white/80"}`}>
                     {s.games[pl]}
                   </div>
                 )}
-                {/* Points / TB / Games */}
-                <div className={`w-16 text-center text-3xl font-black transition-colors duration-200 ${ptsColor}`}>
-                  {pDisp}
-                </div>
+                {/* PTS/TB/GAM column: hidden in games mode for all non-tiebreak formats (game6, set6, shortset) */}
+                {!isSuperTie && !(scoringMode === 'games' && !s.tb) && (
+                  <div className={`w-16 text-center text-3xl font-black transition-colors duration-200 ${ptsColor}`}>
+                    {pDisp}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
 
         {/* Serve info */}
-        <div className="text-center mt-1.5 text-[11px] text-white/15">
-          Quadra {courtNumber} · Saque: {s.serving === 0 ? shortA : shortB}
+        <div className="text-center mt-1.5 text-[11px] text-white/60">
+          Quadra {courtNumber} · Saque: <span className="font-bold text-white">{s.serving === 0 ? shortA : shortB}</span>
           {(s.tb || durationType === "supertie") && " · Troca a cada 2 pontos"}
         </div>
       </div>
@@ -529,21 +664,22 @@ export default function RefereeScoreboard({
           const color = pl === 0 ? "#FB0395" : "#00F1FD";
           const name = pl === 0 ? teamAName : teamBName;
           const pDisp = ptLabel(pl);
+          const touchLabel = scoringMode === 'games' ? "⊕ TOQUE PARA GAME" : "⊕ TOQUE PARA PONTO";
 
           return (
             <div key={pl}
               onPointerDown={(e) => { e.preventDefault(); addPoint(pl); }}
               className="flex-1 rounded-2xl flex items-center justify-between px-6 cursor-pointer transition-all duration-75 active:scale-[0.98]"
               style={{
-                background: `linear-gradient(135deg, ${color}12, ${color}06)`,
-                border: `2px solid ${color}20`,
+                background: `linear-gradient(135deg, ${color}1A, ${color}0D)`,
+                border: `2px solid ${color}33`,
                 minHeight: 80,
               }}>
               <div>
-                <div className="text-sm font-bold text-white/50">{name}</div>
-                <div className="text-[11px] font-bold mt-1 tracking-wider" style={{ color }}>⊕ TOQUE PARA PONTO</div>
+                <div className="text-sm font-bold text-white/90">{name}</div>
+                <div className="text-[11px] font-bold mt-1 tracking-wider" style={{ color }}>{touchLabel}</div>
               </div>
-              <div className="text-5xl font-black leading-none" style={{ color, opacity: 0.5 }}>
+              <div className="text-5xl font-black leading-none" style={{ color, opacity: 0.8 }}>
                 {pDisp}
               </div>
             </div>
@@ -554,7 +690,7 @@ export default function RefereeScoreboard({
       {/* Finish button */}
       <div className="px-3.5 pb-5 pt-2 shrink-0">
         <button onClick={handleFinishEarly}
-          className="w-full py-3.5 rounded-2xl font-black text-sm bg-green-500/10 text-green-400 border-2 border-green-500/20 hover:bg-green-500/20 transition-colors uppercase tracking-widest">
+          className="w-full py-3.5 rounded-2xl font-black text-sm bg-green-500/20 text-green-300 border-2 border-green-500/40 hover:bg-green-500/30 transition-colors uppercase tracking-widest">
           ✓ Encerrar Partida e Registrar Placar
         </button>
       </div>
