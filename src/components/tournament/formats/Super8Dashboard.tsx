@@ -17,9 +17,10 @@ interface Super8DashboardProps {
   config: TournamentConfig;
   players: string[];
   openMatchGlobalId?: string;
+  autoStart?: boolean;
 }
 
-export default function Super8Dashboard({ config, players, openMatchGlobalId }: Super8DashboardProps) {
+export default function Super8Dashboard({ config, players, openMatchGlobalId, autoStart }: Super8DashboardProps) {
   const { data, updateData, updateField, isLoaded } = useTournamentData(config.id);
   const { validateScore, updateMatchScore, syncAllResults } = useMatchSync(config.id);
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "operation" | "standings">("overview");
@@ -31,6 +32,17 @@ export default function Super8Dashboard({ config, players, openMatchGlobalId }: 
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [syncWarning, setSyncWarning] = useState<string | null>(null);
   const [showAttendanceManager, setShowAttendanceManager] = useState(false);
+
+  // Auto-start operation mode when autoStart is true
+  useEffect(() => {
+    if (autoStart && isLoaded && data.status === "planning" && data.matches.length > 0) {
+      // Small delay to ensure data is ready
+      const timer = setTimeout(() => {
+        handleStartOperation();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoStart, isLoaded, data.status, data.matches.length]);
 
   // Sync results when tab changes
   useEffect(() => {

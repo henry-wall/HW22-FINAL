@@ -9,6 +9,7 @@ export type VictoryCondition = "wins" | "gamediff" | "gamesfor"; // Kept for bac
 export type DurationType = "set6" | "shortset" | "supertie" | "game6";
 export type TournamentGroupFormat = "single" | "groups";
 export type PlayoffFormat = "none" | "series" | "knockout";
+export type DrawMode = "full" | "entry" | "groups";
 export type ViewMode = "planning" | "operation" | "presentation";
 
 // Status de presença do atleta
@@ -87,6 +88,12 @@ export interface TournamentConfig {
   groupFormat: TournamentGroupFormat;
   playoffFormat?: PlayoffFormat;
   matchSettings?: MatchSettings;
+  drawEnabled?: boolean;          // Se o sorteio inicial deve ser aplicado ao criar o torneio
+  drawMode?: DrawMode;            // full = sorteio completo, entry = só ordem, groups = só grupos
+  drawSeeded?: boolean;          // Cabeças de chave
+  drawOrder?: string[];           // Ordem final dos participantes após o sorteio
+  drawGroups?: { groupA: string[]; groupB: string[] };
+  drawCouplesOrder?: { manName: string; womanName: string }[];
   createdAt: string;
   eventId?: string;                // ID do evento maior (opcional)
 }

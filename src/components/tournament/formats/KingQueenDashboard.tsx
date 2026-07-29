@@ -18,6 +18,7 @@ interface KingQueenDashboardProps {
   config: TournamentConfig;
   players: string[];
   openMatchGlobalId?: string;
+  autoStart?: boolean;
 }
 
 const GROUP_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -31,7 +32,7 @@ const SERIES_COLORS = [
   { bg: "#ECFDF5", border: "#10B981", text: "#064E3B" }, // Cristal
 ];
 
-export default function KingQueenDashboard({ config, players, openMatchGlobalId }: KingQueenDashboardProps) {
+export default function KingQueenDashboard({ config, players, openMatchGlobalId, autoStart }: KingQueenDashboardProps) {
   const { data, updateData, updateField, isLoaded } = useTournamentData(config.id);
   const { validateScore, updateMatchScore, syncAllResults } = useMatchSync(config.id);
   const [activeTab, setActiveTab] = useState<"overview" | "groups" | "operation" | "series" | "standings">("overview");
@@ -43,6 +44,16 @@ export default function KingQueenDashboard({ config, players, openMatchGlobalId 
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [syncWarning, setSyncWarning] = useState<string | null>(null);
   const [showAttendanceManager, setShowAttendanceManager] = useState(false);
+
+  // Auto-start operation mode when autoStart is true
+  useEffect(() => {
+    if (autoStart && isLoaded && data.status === "planning" && data.matches.length > 0) {
+      const timer = setTimeout(() => {
+        handleStartOperation();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoStart, isLoaded, data.status, data.matches.length]);
 
   // Sync results when tab changes
   useEffect(() => {

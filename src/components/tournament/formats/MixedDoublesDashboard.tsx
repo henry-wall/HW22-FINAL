@@ -16,9 +16,10 @@ interface MixedDoublesDashboardProps {
   config: TournamentConfig;
   couples: { manName: string; womanName: string }[];
   openMatchGlobalId?: string;
+  autoStart?: boolean;
 }
 
-export default function MixedDoublesDashboard({ config, couples, openMatchGlobalId }: MixedDoublesDashboardProps) {
+export default function MixedDoublesDashboard({ config, couples, openMatchGlobalId, autoStart }: MixedDoublesDashboardProps) {
   const { data, updateData, updateField, isLoaded } = useTournamentData(config.id);
   const { validateScore, updateMatchScore, syncAllResults } = useMatchSync(config.id);
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "operation" | "standings">("overview");
@@ -29,6 +30,16 @@ export default function MixedDoublesDashboard({ config, couples, openMatchGlobal
   const [refereeMatch, setRefereeMatch] = useState<{ match: EngineMatch; court: number } | null>(null);
   const [syncWarning, setSyncWarning] = useState<string | null>(null);
   const [showAttendanceManager, setShowAttendanceManager] = useState(false);
+
+  // Auto-start operation mode when autoStart is true
+  useEffect(() => {
+    if (autoStart && isLoaded && data.status === "planning" && data.matches.length > 0) {
+      const timer = setTimeout(() => {
+        handleStartOperation();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoStart, isLoaded, data.status, data.matches.length]);
 
   // Sync results when tab changes
   useEffect(() => {

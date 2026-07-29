@@ -1,4 +1,4 @@
-import type { DurationType, MatchSettings, TournamentFormat, TournamentGroupFormat, PlayoffFormat } from "../../types/tournament";
+import type { DurationType, MatchSettings, TournamentFormat, TournamentGroupFormat, PlayoffFormat, DrawMode } from "../../types/tournament";
 import { getGamesPerSetFromDurationType } from "../../utils/matchSettingsUtils";
 
 interface Step4SettingsProps {
@@ -10,6 +10,9 @@ interface Step4SettingsProps {
   playoffFormat: PlayoffFormat;
   tournamentName: string;
   matchSettings: MatchSettings;
+  useDraw: boolean;
+  drawMode: DrawMode;
+  drawSeeded: boolean;
   onChangeNum: (n: number) => void;
   onChangeCourts: (n: number) => void;
   onChangeDuration: (d: DurationType) => void;
@@ -17,6 +20,9 @@ interface Step4SettingsProps {
   onChangePlayoff: (p: PlayoffFormat) => void;
   onChangeName: (name: string) => void;
   onChangeMatchSettings: (s: MatchSettings) => void;
+  onToggleDraw: () => void;
+  onChangeDrawMode: (mode: DrawMode) => void;
+  onToggleSeeded: () => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -59,9 +65,9 @@ const durations: { id: DurationType; label: string; minutes: number; isNew?: boo
 ];
 
 export default function Step4Settings({
-  format, numPlayers, numCourts, durationType, groupFormat, playoffFormat, tournamentName, matchSettings,
+  format, numPlayers, numCourts, durationType, groupFormat, playoffFormat, tournamentName, matchSettings, useDraw, drawMode, drawSeeded,
   onChangeNum, onChangeCourts, onChangeDuration, onChangeGroup, onChangePlayoff, onChangeName, onChangeMatchSettings,
-  onNext, onBack,
+  onToggleDraw, onChangeDrawMode, onToggleSeeded, onNext, onBack,
 }: Step4SettingsProps) {
   const isMixed = format === "mixeddoubles";
   const minPlayers = isMixed ? 4 : 4;
@@ -237,6 +243,53 @@ export default function Step4Settings({
             </button>
           )}
         </div>
+      </div>
+
+      <div className="mb-6 rounded-2xl border border-border-main bg-surface p-4 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black text-text-secondary uppercase tracking-widest mb-2">🎲 Sorteio inicial</p>
+            <p className="text-sm font-semibold text-text-primary">Sortear a ordem inicial dos participantes antes de gerar o torneio</p>
+            <p className="text-xs text-text-secondary mt-1">Útil para deixar o início mais transparente em Super 8, King & Queen e demais formatos.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onToggleDraw}
+            className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${useDraw ? "bg-brand-pink" : "bg-border-main"}`}
+          >
+            <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${useDraw ? "translate-x-7" : "translate-x-1"}`} />
+          </button>
+        </div>
+
+        {useDraw && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {[
+                { id: "full", label: "Completo" },
+                { id: "entry", label: "Só ordem" },
+                { id: "groups", label: "Só grupos" },
+              ].map(option => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => onChangeDrawMode(option.id as DrawMode)}
+                  className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-all ${drawMode === option.id ? "border-brand-pink bg-brand-pink/10 text-brand-pink" : "border-border-main bg-bg-page text-text-secondary"}`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={onToggleSeeded}
+              className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm font-semibold transition-all ${drawSeeded ? "border-brand-cyan bg-brand-cyan/10 text-brand-cyan" : "border-border-main bg-bg-page text-text-secondary"}`}
+            >
+              <span>🎯 Cabeças de chave</span>
+              <span>{drawSeeded ? "Ativado" : "Desativado"}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Formato grupo (apenas Super 8 / Mixed Doubles / New Doubles) */}

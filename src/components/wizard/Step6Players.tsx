@@ -27,6 +27,10 @@ export default function Step6Players({
   onPlayersChange, onCouplesChange, onFinish, onBack,
 }: Step6PlayersProps) {
   const isMixed = format === "mixeddoubles";
+  // For drawdoubles, numPlayers is individuals, so couples = numPlayers / 2
+  const isDrawDoubles = format === "drawdoubles";
+  const couplesCount = isDrawDoubles ? Math.floor(numPlayers / 2) : numPlayers;
+  
   const [men, setMen] = useState<string[]>(
     isMixed && coupleMode === "draw"
       ? Array(numPlayers).fill("")
@@ -46,9 +50,9 @@ export default function Step6Players({
 
   // Initialize players array if needed
   const currentPlayers = players.length === numPlayers ? players : Array(numPlayers).fill("");
-  const currentCouples = couples.length === numPlayers
+  const currentCouples = couples.length === couplesCount
     ? couples
-    : Array(numPlayers).fill(null).map((_, i) => couples[i] || { manName: "", womanName: "" });
+    : Array(couplesCount).fill(null).map((_, i) => couples[i] || { manName: "", womanName: "" });
 
   // Find duplicates across all inputs in Step6Players
   const allNamesList = (isMixed && coupleMode === "draw")
@@ -124,7 +128,7 @@ export default function Step6Players({
       setWomen(updated);
     } else if (pasteModal.target === "couples") {
       const updated = [...currentCouples];
-      for (let i = 0; i < numPlayers && i < lines.length; i++) {
+      for (let i = 0; i < couplesCount && i < lines.length; i++) {
         const line = lines[i];
         // Split by " e ", " com " (require spaces) OR symbols like "/", "+", "&" (optional spaces)
         const parts = line.split(/\s+(?:e|com)\s+|\s*[\/&\+]\s*/i);

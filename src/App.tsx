@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import PresentationMode from "./components/tournament/PresentationMode";
 import { StorageProvider, useStorage } from "./services/storage/StorageContext";
 import { ThemeProvider } from "./services/ThemeContext";
@@ -24,6 +24,15 @@ function AppContent() {
   const { data, updateField, isLoaded } = useTournamentState<AppData>("wallbt_v2_app", DEFAULT_DATA);
   const [view, setView] = useState<AppView>("home");
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
+  const [justCompletedWizard, setJustCompletedWizard] = useState(false);
+
+  // Reset justCompletedWizard after TournamentDashboard uses it
+  useEffect(() => {
+    if (justCompletedWizard) {
+      const timer = setTimeout(() => setJustCompletedWizard(false), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [justCompletedWizard]);
 
   // Detect TV / shared match mode from URL
   const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -54,6 +63,7 @@ function AppContent() {
     updateField("tournaments", newTournaments);
     updateField("players", newPlayers);
     setActiveTournamentId(config.id);
+    setJustCompletedWizard(true);
     setView("tournament");
   }, [tournaments, playersMap, updateField]);
 
@@ -193,6 +203,7 @@ function AppContent() {
         siblingTournaments={siblingTournaments}
         activeEvent={activeEvent}
         onSwitchTournament={handleOpenTournament}
+        autoStart={justCompletedWizard}
       />
     );
   }

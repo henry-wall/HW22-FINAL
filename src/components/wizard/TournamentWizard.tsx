@@ -5,6 +5,7 @@ import Step3Category from "./Step3Category";
 import Step4Settings from "./Step4Settings";
 import Step5Victory from "./Step5Victory";
 import Step6Players from "./Step6Players";
+import DrawCeremonyModal from "./DrawCeremonyModal";
 import { useWizard } from "../../hooks/useWizard";
 import type { TournamentConfig, TournamentEvent } from "../../types/tournament";
 import { useState } from "react";
@@ -17,8 +18,46 @@ interface TournamentWizardProps {
 
 export default function TournamentWizard({ events, onComplete, onCancel }: TournamentWizardProps) {
   const [selectedEventId, setSelectedEventId] = useState<string | undefined>(undefined);
+  const [showDrawCeremony, setShowDrawCeremony] = useState(false);
+  const [drawCeremonyData, setDrawCeremonyData] = useState<{
+    players: string[];
+    couples: { manName: string; womanName: string }[];
+    format: TournamentConfig["format"];
+    numPlayers: number;
+    numCourts: number;
+    config: TournamentConfig;
+  } | null>(null);
+  
   const { state, players, setPlayers, couples, setCouples, update, next, back, finish: finishWizard, totalSteps, stepNames } = useWizard(
-    (config, playersList) => onComplete(config, playersList, selectedEventId)
+    (config, playersList) => {
+      if (!state.useDraw) {
+        onComplete(config, playersList, selectedEventId);
+        return;
+      }
+
+      const nextPlayers = Array.isArray(playersList) && typeof playersList[0] === "string"
+        ? (playersList as string[])
+        : [];
+      const nextCouples = Array.isArray(playersList) && typeof playersList[0] === "object"
+        ? (playersList as { manName: string; womanName: string }[])
+        : [];
+
+      // Store data for draw ceremony
+      setDrawCeremonyData({
+        players: nextPlayers,
+        couples: nextCouples,
+        format: config.format!,
+        numPlayers: state.numPlayers,
+        numCourts: state.numCourts,
+        config: {
+          ...config,
+          drawEnabled: state.useDraw,
+          drawMode: state.drawMode,
+          drawSeeded: state.drawSeeded,
+        },
+      });
+      setShowDrawCeremony(true);
+    }
   );
 
   const finish = finishWizard;
@@ -78,6 +117,12 @@ export default function TournamentWizard({ events, onComplete, onCancel }: Tourn
           onChangePlayoff={(p) => update({ playoffFormat: p })}
           onChangeName={(name) => update({ tournamentName: name })}
           onChangeMatchSettings={(s) => update({ matchSettings: s })}
+          useDraw={state.useDraw}
+          drawMode={state.drawMode}
+          drawSeeded={state.drawSeeded}
+          onToggleDraw={() => update({ useDraw: !state.useDraw })}
+          onChangeDrawMode={(mode) => update({ drawMode: mode })}
+          onToggleSeeded={() => update({ drawSeeded: !state.drawSeeded })}
           onNext={next}
           onBack={back}
         />
@@ -172,6 +217,39 @@ export default function TournamentWizard({ events, onComplete, onCancel }: Tourn
 
         {renderStep()}
       </div>
+
+      {/* Draw Ceremony Modal */}
+      {showDrawCeremony && drawCeremonyData && (
+        <DrawCeremonyModal
+          isOpen={showDrawCeremony}
+          data={drawCeremonyData}
+          onConfirm={(drawnPlayers, drawnCouples, drawSummary) => {
+            const configWithDraw = {
+              ...drawCeremonyData.config,
+              drawEnabled: true,
+              drawMode: drawCeremonyData.config.drawMode ?? "full",
+              drawSeeded: drawCeremonyData.config.drawSeeded ?? false,
+              drawOrder: drawCeremonyData.format === "fixeddoubles" || drawCeremonyData.format === "mixeddoubles"
+                ? (drawnCouples?.map(c => `${c.manName} & ${c.womanName}`) ?? [])
+                : (drawnPlayers ?? []),
+              drawGroups: drawSummary?.groups,
+              drawCouplesOrder: drawnCouples ?? [],
+            };
+
+            // Call the original onComplete with the stored data
+            onComplete(configWithDraw,
+              drawCeremonyData.format === "fixeddoubles" || drawCeremonyData.format === "mixeddoubles"
+                ? (drawnCouples ?? drawCeremonyData.couples)
+                : (drawnPlayers ?? drawCeremonyData.players),
+              selectedEventId
+            );
+            setShowDrawCeremony(false);
+          }}
+          onCancel={() => {
+            setShowDrawCeremony(false);
+          }}
+        />
+      )}
     </div>
   );
 }

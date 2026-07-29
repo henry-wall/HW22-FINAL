@@ -13,6 +13,7 @@ import type { RankingItem } from "../../utils/rankingUtils";
 import { shareStandingsToWhatsApp } from "../../utils/shareUtils";
 import { exportRankingToCSV } from "../../utils/csvExport";
 import { getTieBreakTrigger, getDefaultMatchSettings } from "../../utils/matchSettingsUtils";
+import { shuffleArray } from "../../utils/drawUtils";
 import type { MatchSettings } from "../../types/tournament";
 
 interface TournamentDashboardProps {
@@ -25,6 +26,7 @@ interface TournamentDashboardProps {
   activeEvent?: TournamentEvent;
   onSwitchTournament?: (id: string) => void;
   openMatchGlobalId?: string;
+  autoStart?: boolean;
 }
 
 const formatLabels: Record<string, string> = {
@@ -59,6 +61,7 @@ export default function TournamentDashboard({
   activeEvent,
   onSwitchTournament,
   openMatchGlobalId,
+  autoStart,
 }: TournamentDashboardProps) {
   const [showTVMode, setShowTVMode] = useState(false);
   const [isEditingPlayers, setIsEditingPlayers] = useState(false);
@@ -70,23 +73,267 @@ export default function TournamentDashboard({
   const [championShown, setChampionShown] = useState(false);
   const [playersExpanded, setPlayersExpanded] = useState(false);
   const [configExpanded, setConfigExpanded] = useState(false);
+  const [isEditingDraw, setIsEditingDraw] = useState(false);
+  const [drawBlockMessage, setDrawBlockMessage] = useState<string | null>(null);
+  const [drawEditorDraft, setDrawEditorDraft] = useState({
+    drawEnabled: Boolean(config.drawEnabled),
+    drawMode: config.drawMode ?? "full",
+    drawSeeded: Boolean(config.drawSeeded),
+  });
   const { data } = useTournamentData(config.id);
+  const hasStartedMatches = Boolean(
+    data && (
+      Object.keys(data.inProgressMatches || {}).length > 0 ||
+      (data.completedMatches?.length ?? 0) > 0
+    )
+  );
+
+  useEffect(() => {
+    setDrawEditorDraft({
+      drawEnabled: Boolean(config.drawEnabled),
+      drawMode: config.drawMode ?? "full",
+      drawSeeded: Boolean(config.drawSeeded),
+    });
+  }, [config.drawEnabled, config.drawMode, config.drawSeeded]);
+
+  useEffect(() => {
+    if (!drawBlockMessage) return;
+    const timer = window.setTimeout(() => setDrawBlockMessage(null), 2800);
+    return () => window.clearTimeout(timer);
+  }, [drawBlockMessage]);
+
+  const buildDrawPayload = (draft: typeof drawEditorDraft) => {
+    const list = usesCouples
+      ? (initialPlayers as { manName: string; womanName: string }[]).map(couple => `${couple.manName} & ${couple.womanName}`)
+      : (initialPlayers as string[]);
+
+    if (!draft.drawEnabled || list.length === 0) {
+      return {
+        drawEnabled: false,
+        drawMode: draft.drawMode,
+        drawSeeded: draft.drawSeeded,
+        drawOrder: undefined,
+        drawGroups: undefined,
+        drawCouplesOrder: undefined,
+      };
+    }
+
+    const indices = Array.from({ length: list.length }, (_, index) => index);
+    let shuffledIndices = shuffleArray(indices);
+
+    if (draft.drawSeeded && list.length >= 4) {
+      const half = Math.ceil(list.length / 2);
+      const firstHalf = shuffleArray(indices.slice(0, half));
+      const secondHalf = shuffleArray(indices.slice(half));
+      shuffledIndices = [...firstHalf, ...secondHalf];
+    }
+
+    const orderedItems = shuffledIndices.map(index => list[index]);
+    const shouldIncludeOrder = draft.drawMode !== "groups";
+    const shouldIncludeGroups = draft.drawMode !== "entry";
+    const half = Math.ceil(orderedItems.length / 2);
+    const drawGroups = shouldIncludeGroups
+      ? {
+          groupA: orderedItems.slice(0, half),
+          groupB: orderedItems.slice(half),
+        }
+      : undefined;
+
+    if (usesCouples) {
+      return {
+        drawEnabled: true,
+        drawMode: draft.drawMode,
+        drawSeeded: draft.drawSeeded,
+        drawOrder: shouldIncludeOrder ? orderedItems : undefined,
+        drawGroups,
+        drawCouplesOrder: shouldIncludeOrder
+          ? shuffledIndices.map(index => (initialPlayers as { manName: string; womanName: string }[])[index])
+          : undefined,
+      };
+    }
+
+    return {
+      drawEnabled: true,
+      drawMode: draft.drawMode,
+      drawSeeded: draft.drawSeeded,
+      drawOrder: shouldIncludeOrder ? orderedItems : undefined,
+      drawGroups,
+      drawCouplesOrder: undefined,
+    };
+  };
+
+  const handleSaveDrawSettings = () => {
+    if (hasStartedMatches) {
+      setDrawBlockMessage("Não é possível editar o sorteio porque já existem partidas iniciadas ou concluídas.");
+      setIsEditingDraw(false);
+      return;
+    }
+
+    onUpdateTournament(buildDrawPayload(drawEditorDraft));
+    setIsEditingDraw(false);
+  };
+
+  const drawSummary = config.drawEnabled ? (
+    <div className="mt-3 animate-slide-up">
+      {drawBlockMessage && (
+        <div className="mb-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+          {drawBlockMessage}
+        </div>
+      )}
+      <div className="rounded-xl border border-brand-cyan/30 bg-gradient-to-br from-brand-cyan/10 via-brand-cyan/5 to-transparent p-4">
+        {/* Header with icon and mode badge */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-brand-cyan/20 flex items-center justify-center">
+              <span className="text-lg">🎲</span>
+            </div>
+            <div>
+              <p className="font-black text-primary text-sm">Sorteio realizado</p>
+              <p className="text-[10px] text-muted uppercase tracking-wider">
+                {config.drawMode === "entry" 
+                  ? "Apenas ordem de entrada" 
+                  : config.drawMode === "groups" 
+                    ? "Apenas definição de grupos" 
+                    : "Sorteio completo (ordem + grupos)"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${
+              config.drawMode === "entry" 
+                ? "bg-brand-pink/10 text-brand-pink border-brand-pink/30" 
+                : config.drawMode === "groups" 
+                  ? "bg-yellow-400/10 text-yellow-600 border-yellow-400/30" 
+                  : "bg-brand-cyan/10 text-brand-cyan border-brand-cyan/30"
+            }`}>
+              {config.drawMode === "entry" ? "Ordem" : config.drawMode === "groups" ? "Grupos" : "Completo"}
+            </span>
+            {config.drawSeeded && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/30 text-[9px] font-black uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                Cabeças de chave
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (hasStartedMatches) {
+                  setDrawBlockMessage("Não é possível editar o sorteio porque já existem partidas iniciadas ou concluídas.");
+                  return;
+                }
+                setIsEditingDraw(true);
+              }}
+              className="rounded-full border border-brand-cyan/30 bg-brand-cyan/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-brand-cyan transition-colors hover:bg-brand-cyan/20"
+            >
+              ✏️ Editar
+            </button>
+          </div>
+        </div>
+
+        {/* Draw Order Section */}
+        {config.drawOrder && config.drawOrder.length > 0 && (
+          <div className="space-y-2 mb-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] font-black uppercase tracking-widest text-muted">Ordem do sorteio</p>
+              <span className="text-[9px] text-muted">{config.drawOrder.length} {config.drawOrder.length === 1 ? "entrada" : "entradas"}</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {config.drawOrder.map((entry, index) => (
+                <span 
+                  key={`${entry}-${index}`} 
+                  className="inline-flex items-center gap-1.5 rounded-full bg-page/50 border border-border-main/50 px-2.5 py-1.5 text-xs font-medium text-text-primary shadow-sm hover:shadow-md hover:border-brand-cyan/30 transition-all"
+                >
+                  <span className="w-4 h-4 rounded-full bg-brand-cyan/20 text-brand-cyan text-[9px] font-black flex items-center justify-center">
+                    {index + 1}
+                  </span>
+                  <span className="truncate max-w-[120px]">{entry}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Groups Section */}
+        {config.drawGroups && (
+          <div className="space-y-2 pt-3 border-t border-brand-cyan/20">
+            <p className="text-[9px] font-black uppercase tracking-widest text-muted">Grupos formados</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                { label: "Grupo A", players: config.drawGroups.groupA, color: "brand-cyan" },
+                { label: "Grupo B", players: config.drawGroups.groupB, color: "brand-pink" },
+              ].map((group) => (
+                <div 
+                  key={group.label} 
+                  className="relative rounded-xl border border-border-main/50 bg-page/50 p-3 hover:border-brand-cyan/30 transition-all"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <p className={`text-[9px] font-black uppercase tracking-wider ${group.color === "brand-cyan" ? "text-brand-cyan" : "text-brand-pink"}`}>
+                      {group.label}
+                    </p>
+                    <span className="text-[9px] text-muted">{group.players.length} {group.players.length === 1 ? "jogador" : "jogadores"}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {group.players.map((player, playerIndex) => (
+                      <span 
+                        key={`${group.label}-${player}-${playerIndex}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-surface/80 border border-border-main/30 px-2 py-1 text-[10px] font-medium text-text-primary"
+                      >
+                        <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-black bg-brand-cyan/20 text-brand-cyan">
+                          {playerIndex + 1}
+                        </span>
+                        <span className="truncate max-w-[100px]">{player}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Couples Order Section (for mixed doubles / fixed doubles) */}
+        {config.drawCouplesOrder && config.drawCouplesOrder.length > 0 && (
+          <div className="space-y-2 pt-3 border-t border-brand-cyan/20">
+            <p className="text-[9px] font-black uppercase tracking-widest text-muted">Ordem dos casais/duplas</p>
+            <div className="flex flex-wrap gap-1.5">
+              {config.drawCouplesOrder.map((couple, index) => {
+                const coupleLabel = typeof couple === 'string' ? couple : `${couple.manName} / ${couple.womanName}`;
+                return (
+                  <span 
+                    key={`${coupleLabel}-${index}`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-page/50 border border-border-main/50 px-2.5 py-1.5 text-xs font-medium text-text-primary shadow-sm"
+                  >
+                    <span className="w-4 h-4 rounded-full bg-brand-pink/20 text-brand-pink text-[9px] font-black flex items-center justify-center">
+                      {index + 1}
+                    </span>
+                    <span className="truncate max-w-[140px]">{coupleLabel}</span>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Footer with timestamp/info */}
+        <div className="mt-3 pt-3 border-t border-brand-cyan/20 flex items-center justify-between text-[9px] text-muted">
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand-cyan/50 animate-pulse"></span>
+            Sorteio salvo na configuração do torneio
+          </span>
+          <span className="flex items-center gap-1">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   useEffect(() => {
     setEditingPlayers(JSON.parse(JSON.stringify(initialPlayers)));
   }, [initialPlayers]);
-
-  const handleSavePlayers = () => {
-    onUpdatePlayers(editingPlayers);
-    setIsEditingPlayers(false);
-  };
-
-  const handleSaveName = () => {
-    if (newName.trim()) {
-      onUpdateTournament({ name: newName.trim() });
-      setIsEditingName(false);
-    }
-  };
 
   const isMixed = config.format === "mixeddoubles";
   const isDoubles = config.format === "fixeddoubles" || config.format === "drawdoubles";
@@ -142,6 +389,18 @@ export default function TournamentDashboard({
       setChampionShown(true);
     }
   }, [isFinished, championShown]);
+
+  const handleSavePlayers = () => {
+    onUpdatePlayers(editingPlayers);
+    setIsEditingPlayers(false);
+  };
+
+  const handleSaveName = () => {
+    if (newName.trim()) {
+      onUpdateTournament({ name: newName.trim() });
+      setIsEditingName(false);
+    }
+  };
 
   if (showTVMode) {
     return <PresentationMode config={config} players={players} couples={couples} onClose={() => setShowTVMode(false)} />;
@@ -248,6 +507,68 @@ export default function TournamentDashboard({
           </div>
         )}
       </div>
+
+      {isEditingDraw && (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-border-main bg-surface p-5 shadow-2xl">
+            <div className="mb-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-cyan">Editar sorteio</p>
+              <h3 className="mt-1 text-xl font-black text-primary">Ajustar configuração do sorteio</h3>
+              <p className="mt-2 text-sm text-text-secondary">Você pode ativar/desativar o sorteio, mudar o tipo de resultado e usar cabeças de chave.</p>
+            </div>
+
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => setDrawEditorDraft(prev => ({ ...prev, drawEnabled: !prev.drawEnabled }))}
+                className={`flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-sm font-semibold transition-all ${drawEditorDraft.drawEnabled ? "border-brand-pink bg-brand-pink/10 text-brand-pink" : "border-border-main bg-bg-page text-text-secondary"}`}
+              >
+                <span>🎲 Usar sorteio</span>
+                <span>{drawEditorDraft.drawEnabled ? "Ativado" : "Desativado"}</span>
+              </button>
+
+              {drawEditorDraft.drawEnabled && (
+                <>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {[
+                      { id: "full", label: "Completo" },
+                      { id: "entry", label: "Só ordem" },
+                      { id: "groups", label: "Só grupos" },
+                    ].map(option => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setDrawEditorDraft(prev => ({ ...prev, drawMode: option.id as typeof prev.drawMode }))}
+                        className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-all ${drawEditorDraft.drawMode === option.id ? "border-brand-pink bg-brand-pink/10 text-brand-pink" : "border-border-main bg-bg-page text-text-secondary"}`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setDrawEditorDraft(prev => ({ ...prev, drawSeeded: !prev.drawSeeded }))}
+                    className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm font-semibold transition-all ${drawEditorDraft.drawSeeded ? "border-brand-cyan bg-brand-cyan/10 text-brand-cyan" : "border-border-main bg-bg-page text-text-secondary"}`}
+                  >
+                    <span>🎯 Cabeças de chave</span>
+                    <span>{drawEditorDraft.drawSeeded ? "Ativado" : "Desativado"}</span>
+                  </button>
+                </>
+              )}
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button type="button" onClick={() => setIsEditingDraw(false)} className="btn-secondary flex-1">
+                Cancelar
+              </button>
+              <button type="button" onClick={handleSaveDrawSettings} className="btn-primary flex-1">
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="px-5 pt-4">
         {/* Mobile Collapsible Config Button with Edit */}
@@ -429,6 +750,8 @@ export default function TournamentDashboard({
             ))}
           </div>
         )}
+
+        {drawSummary}
 
         {/* Players List inside Config (always visible on desktop, inside collapsible on mobile) */}
         <div className="surface-card p-4 flex flex-col min-h-0 mt-4">
@@ -614,13 +937,13 @@ export default function TournamentDashboard({
       {/* Formats Routing */}
       <div className="flex-1 overflow-hidden">
         {config.format === "super8" ? (
-          <Super8Dashboard config={config} players={players} openMatchGlobalId={openMatchGlobalId} />
+          <Super8Dashboard config={config} players={players} openMatchGlobalId={openMatchGlobalId} autoStart={autoStart} />
         ) : config.format === "mixeddoubles" ? (
-          <MixedDoublesDashboard config={config} couples={couples as any} openMatchGlobalId={openMatchGlobalId} />
+          <MixedDoublesDashboard config={config} couples={couples as any} openMatchGlobalId={openMatchGlobalId} autoStart={autoStart} />
         ) : config.format === "kingqueen" ? (
-          <KingQueenDashboard config={config} players={players} openMatchGlobalId={openMatchGlobalId} />
+          <KingQueenDashboard config={config} players={players} openMatchGlobalId={openMatchGlobalId} autoStart={autoStart} />
         ) : (config.format === "fixeddoubles" || config.format === "drawdoubles") ? (
-          <DoublesDashboard config={config} couples={couples as any} openMatchGlobalId={openMatchGlobalId} />
+          <DoublesDashboard config={config} couples={couples as any} openMatchGlobalId={openMatchGlobalId} autoStart={autoStart} />
         ) : (
           <div className="rounded-2xl p-6 text-center mt-4 border border-dashed border-brand-pink/30 bg-brand-pink/5 mx-5">
             <div className="text-3xl mb-3">⚙️</div>

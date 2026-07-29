@@ -14,9 +14,10 @@ interface DoublesDashboardProps {
   config: TournamentConfig;
   couples: { manName: string; womanName: string }[];
   openMatchGlobalId?: string;
+  autoStart?: boolean;
 }
 
-export default function DoublesDashboard({ config, couples, openMatchGlobalId }: DoublesDashboardProps) {
+export default function DoublesDashboard({ config, couples, openMatchGlobalId, autoStart }: DoublesDashboardProps) {
   const { data, updateData, updateField, isLoaded } = useTournamentData(config.id);
   const { validateScore, updateMatchScore, syncAllResults } = useMatchSync(config.id);
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "operation" | "series" | "standings">("overview");
@@ -24,6 +25,38 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
   const [refereeMatch, setRefereeMatch] = useState<{ match: EngineMatch; court: number } | null>(null);
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
   const [syncWarning, setSyncWarning] = useState<string | null>(null);
+
+  // Para drawdoubles, numPlayers é o número de jogadores individuais, então casais = numPlayers / 2
+  const numCouples = config.format === "drawdoubles" ? Math.floor(config.numPlayers / 2) : config.numPlayers;
+
+  // Auto-start operation mode when autoStart is true
+  useEffect(() => {
+    if (autoStart && isLoaded && data.status === "planning" && data.matches.length > 0) {
+      const timer = setTimeout(() => {
+        const queue = [...data.matches];
+        const inProgress: Record<number, EngineMatch> = {};
+        const remainingQueue = [...queue];
+
+        for (let i = 1; i <= config.numCourts; i++) {
+          const idx = remainingQueue.findIndex(() => true);
+          if (idx !== -1) {
+            const nextMatch = remainingQueue.splice(idx, 1)[0];
+            inProgress[i] = { ...nextMatch, court: i };
+          }
+        }
+
+        updateData({
+          ...data,
+          status: "operation",
+          matchQueue: remainingQueue,
+          inProgressMatches: inProgress,
+          completedMatches: []
+        });
+        setActiveTab("operation");
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoStart, isLoaded, data.status, data.matches.length]);
 
   // Sync results when tab changes
   useEffect(() => {
@@ -62,7 +95,7 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
   // Initial generation
   useEffect(() => {
     if (isLoaded && data.matches.length === 0) {
-      const matches = generateDoublesSchedule(config.numPlayers, config.numCourts, config.groupFormat);
+      const matches = generateDoublesSchedule(numCouples, config.numCourts, config.groupFormat);
       updateData({
         ...data,
         matches,
@@ -71,7 +104,7 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
         couples // Salva as duplas para o Modo TV
       });
     }
-  }, [isLoaded, config.numPlayers, config.numCourts, config.groupFormat, couples]);
+  }, [isLoaded, numCouples, config.numCourts, config.groupFormat, couples]);
 
   // Handle score change with validation and sync
   const handleScoreChange = useCallback((globalId: string, scoreA: string, scoreB: string) => {
@@ -164,9 +197,9 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
 
   const handleGeneratePlayoff = () => {
     if (playoffFormat === "none") return;
-    const pts = Array(config.numPlayers).fill(0);
-    const diff = Array(config.numPlayers).fill(0);
-    const games = Array(config.numPlayers).fill(0);
+    const pts = Array(numCouples).fill(0);
+    const diff = Array(numCouples).fill(0);
+    const games = Array(numCouples).fill(0);
     data.completedMatches.filter(m => !m.isPlayoff).forEach(m => {
       const res = data.matchResults[m.globalId];
       if (!res || res.scoreA === "" || res.scoreB === "") return;
@@ -180,7 +213,7 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
       else if (winner === "B") pts[pB] += 3;
       else { pts[pA] += 1; pts[pB] += 1; }
     });
-    const ranked = Array.from({ length: config.numPlayers }, (_, i) => ({ index: i, pts: pts[i], diff: diff[i], games: games[i] }))
+    const ranked = Array.from({ length: numCouples }, (_, i) => ({ index: i, pts: pts[i], diff: diff[i], games: games[i] }))
       .sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.games - a.games)
       .map(r => r.index);
     const playoffMatches = generateDoublesSeries(ranked, playoffFormat as "series" | "knockout");
@@ -194,10 +227,10 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
 
   // Ranking calculation
   const ranking = useMemo(() => {
-    const pts = Array(config.numPlayers).fill(0);
-    const wins = Array(config.numPlayers).fill(0);
-    const diff = Array(config.numPlayers).fill(0);
-    const games = Array(config.numPlayers).fill(0);
+    const pts = Array(numCouples).fill(0);
+    const wins = Array(numCouples).fill(0);
+    const diff = Array(numCouples).fill(0);
+    const games = Array(numCouples).fill(0);
 
     const matchesToProcess = data.status === "planning" ? data.matches : data.completedMatches;
 
@@ -222,7 +255,7 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
       else { pts[pA] += 1; pts[pB] += 1; }
     });
 
-    const items = Array.from({ length: config.numPlayers }, (_, i) => ({
+    const items = Array.from({ length: numCouples }, (_, i) => ({
       index: i,
       name: couples[i] ? `${couples[i].womanName} & ${couples[i].manName}` : `Dupla ${i + 1}`,
       pts: pts[i],
@@ -232,14 +265,14 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
     }));
 
     if (config.groupFormat === "groups") {
-      const half = Math.ceil(config.numPlayers / 2);
+      const half = Math.ceil(numCouples / 2);
       const groupA = items.filter(item => item.index < half).sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.games - a.games);
       const groupB = items.filter(item => item.index >= half).sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.games - a.games);
       return { groupA, groupB };
     }
 
     return { single: items.sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.games - a.games) };
-  }, [data, config, couples]);
+  }, [data, config, couples, numCouples]);
 
   const abbreviateName = (name?: string) => {
     if (!name) return "";
@@ -317,7 +350,7 @@ export default function DoublesDashboard({ config, couples, openMatchGlobalId }:
         {activeTab === "overview" && (
           <div className="surface-card space-y-4">
             <h3 className="font-bold text-primary">{config.format === "fixeddoubles" ? "Duplas Fixas" : "Duplas Sorteadas"}</h3>
-            <p className="text-sm text-secondary">{config.numPlayers} duplas · {config.numCourts} quadra(s) · {playoffFormat !== "none" ? (playoffFormat === "series" ? "Fase Final: Séries" : "Fase Final: Mata-Mata") : "Apenas Classificatória"}</p>
+            <p className="text-sm text-secondary">{numCouples} duplas · {config.numCourts} quadra(s) · {playoffFormat !== "none" ? (playoffFormat === "series" ? "Fase Final: Séries" : "Fase Final: Mata-Mata") : "Apenas Classificatória"}</p>
             {data.status === "planning" ? (
               <button onClick={handleStartOperation} className="btn-primary w-full">▶ Iniciar Torneio (Modo Operação)</button>
             ) : (

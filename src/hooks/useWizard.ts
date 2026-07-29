@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { TournamentConfig, TournamentFormat, PairingMode, CoupleMode, Category, VictoryCondition, TiebreakerCriterion, DurationType, TournamentGroupFormat, MatchSettings, PlayoffFormat } from "../types/tournament";
+import type { TournamentConfig, TournamentFormat, PairingMode, CoupleMode, Category, VictoryCondition, TiebreakerCriterion, DurationType, TournamentGroupFormat, MatchSettings, PlayoffFormat, DrawMode } from "../types/tournament";
 import { getDefaultMatchSettings } from "../utils/matchSettingsUtils";
 
 interface WizardState {
@@ -17,6 +17,9 @@ interface WizardState {
   playoffFormat: PlayoffFormat;
   tournamentName: string;
   matchSettings: MatchSettings;
+  useDraw: boolean;
+  drawMode: DrawMode;
+  drawSeeded: boolean;
 }
 
 const initial: WizardState = {
@@ -34,6 +37,9 @@ const initial: WizardState = {
   playoffFormat: "none",
   tournamentName: "",
   matchSettings: getDefaultMatchSettings("set6"),
+  useDraw: false,
+  drawMode: "full",
+  drawSeeded: false,
 };
 
 export function useWizard(onComplete: (config: TournamentConfig, players: string[] | { manName: string; womanName: string }[]) => void) {
@@ -110,6 +116,9 @@ export function useWizard(onComplete: (config: TournamentConfig, players: string
       groupFormat: state.groupFormat,
       playoffFormat: state.playoffFormat,
       matchSettings: state.matchSettings,
+      drawEnabled: state.useDraw,
+      drawMode: state.drawMode,
+      drawSeeded: state.drawSeeded,
       createdAt: new Date().toISOString(),
     };
     if (state.format === "mixeddoubles" || state.format === "fixeddoubles") {
